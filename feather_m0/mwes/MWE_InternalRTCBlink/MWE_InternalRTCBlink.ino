@@ -1,18 +1,5 @@
 /*
-  Simple RTC for Arduino Zero and MKR1000
-
-  Demonstrates the use of the RTC library for the Arduino Zero and MKR1000
-
-  This example code is in the public domain
-
-  http://arduino.cc/en/Tutorial/SimpleRTC
-
-  created by Arturo Guadalupi <a.guadalupi@arduino.cc>
-  15 Jun 2015
-  modified 
-  18 Feb 2016
-  modified by Andrea Richetta <a.richetta@arduino.cc>
-  24 Aug 2016
+  Adapted from SimpleRTC from RTCZero Library
 */
 
 #include <RTCZero.h>
