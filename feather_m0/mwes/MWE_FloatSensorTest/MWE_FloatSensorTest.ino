@@ -18,8 +18,7 @@ void loop() {
   // delay(1000);
   
 
-  if (digitalRead(8)) digitalWrite(LED_BUILTIN, HIGH);
-  else digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, digitalRead(8));
 
   // delay(1);
 
