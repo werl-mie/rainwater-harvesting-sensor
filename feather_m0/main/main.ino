@@ -93,7 +93,7 @@ void loop() {
   while (event_flag_float1 || event_flag_measurement_timer || event_flag_bucket_monitoring_timeout || event_flag_first_bucket_count){
     if (event_flag_float1) {
       noInterrupts();
-      log_to_sd("FloatLevelChange", String(val_float1));
+      log_to_sd(get_timestamp_str() + ",FloatLevelChange,"+ String(val_float1) + "\n");
       event_flag_float1 = 0;
       interrupts();
     }
@@ -111,9 +111,7 @@ void loop() {
 
     if (event_flag_bucket_monitoring_timeout){
       // Log to SD
-      log_to_sd("BucketFirstCountTime", ts_first_bucket_count);
-      log_to_sd("BucketCounts", String(counter_bucket));
-
+      log_to_sd(get_timestamp_str() + ",BucketFirstCountTime," + ts_first_bucket_count + ",BucketCounts," + String(counter_bucket) + "\n");
       counter_bucket = 0;
       event_flag_bucket_monitoring_timeout = 0;
     }
@@ -132,18 +130,15 @@ void loop() {
   LowPower.sleep();
 }
 
-void log_to_sd(String event_type, String data){
-    String timestamp_str = get_timestamp_str();
-    String dataString = timestamp_str + "," + event_type + "," + data;
-
+void log_to_sd(String str){
 
     File dataFile = SD.open("datalog.txt", FILE_WRITE);
     // if the file is available, write to it:
     if (dataFile) {
-      dataFile.println(dataString);
+      dataFile.print(str);
       dataFile.close();
       // print to the serial port too:
-      Serial.println(dataString);
+      Serial.print(str);
     }
     // if the file isn't open, pop up an error:
     else {
