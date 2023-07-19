@@ -39,6 +39,7 @@ volatile int event_flag_float1 = 0;
 
 volatile int counter_bucket = 0;
 volatile int val_float1 = 0;
+sensors_event_t val_rh, val_temp;
 
 String ts_first_bucket_count = "";
 
@@ -46,12 +47,10 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
 
-  // if (! aht.begin()) {
-  //   Serial.println("Could not find AHT? Check wiring");
-  //   while (1);
-  // }
-
-  // Serial.println("AHT10 or AHT20 found");
+  if (!aht.begin()) {
+    Serial.println("Could not find AHT? Check wiring");
+    while (1);
+  }
 
   if (!SD.begin(chipSelect)) {
     Serial.println("Card failed, or not present");
@@ -66,14 +65,13 @@ void setup() {
 
   rtc_pcf.adjust(DateTime(2023, 7, 19, 12, 18, 0));
   rtc_pcf.deconfigureAllTimers();
-  rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, 60); 
+  rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, 30); 
+  LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_rtc_alarm, FALLING);
 
   rtc_samd.begin();
   rtc_samd.setDate(day, month, year);
   rtc_samd.setTime(hours, minutes, seconds);
   rtc_samd.attachInterrupt(isr_bucket_monitoring_timeout);
-
-
 
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(PIN_SNS_FLOAT0, INPUT_PULLUP);
@@ -82,7 +80,7 @@ void setup() {
 
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT0, isr_float1, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_BUCKET, isr_bucket, RISING);
-  LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_rtc_alarm, FALLING);
+  
 
 
   digitalWrite(LED_BUILTIN,LOW);
@@ -93,15 +91,19 @@ void loop() {
   while (event_flag_float1 || event_flag_measurement_timer || event_flag_bucket_monitoring_timeout || event_flag_first_bucket_count){
     if (event_flag_float1) {
       noInterrupts();
-      log_to_sd("FloatLevelChange", String(val_float1));
+      log_to_sd(get_timestamp_str() + ",Float1LevelChange,"+ String(val_float1) + "\n");
       event_flag_float1 = 0;
       interrupts();
     }
 
     if (event_flag_measurement_timer){
-      // Do measurements
+      noInterrupts();
+      aht.getEvent(&val_rh, &val_temp);
+
+      log_to_sd(get_timestamp_str() + ",TempC," + String(val_temp.temperature) + ",RH," + String(val_rh.relative_humidity) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT0)) + "\n");
 
       event_flag_measurement_timer = 0;
+      interrupts();
     }
 
     if (event_flag_first_bucket_count){
@@ -111,9 +113,7 @@ void loop() {
 
     if (event_flag_bucket_monitoring_timeout){
       // Log to SD
-      log_to_sd("BucketFirstCountTime", ts_first_bucket_count);
-      log_to_sd("BucketCounts", String(counter_bucket));
-
+      log_to_sd(get_timestamp_str() + ",BucketFirstCountTime," + ts_first_bucket_count + ",BucketCounts," + String(counter_bucket) + "\n");
       counter_bucket = 0;
       event_flag_bucket_monitoring_timeout = 0;
     }
@@ -132,24 +132,6 @@ void loop() {
   LowPower.sleep();
 }
 
-void log_to_sd(String event_type, String data){
-    String timestamp_str = get_timestamp_str();
-    String dataString = timestamp_str + "," + event_type + "," + data;
-
-
-    File dataFile = SD.open("datalog.txt", FILE_WRITE);
-    // if the file is available, write to it:
-    if (dataFile) {
-      dataFile.println(dataString);
-      dataFile.close();
-      // print to the serial port too:
-      Serial.println(dataString);
-    }
-    // if the file isn't open, pop up an error:
-    else {
-      Serial.println("error opening datalog.txt");
-    }
-}
 
 void isr_bucket_monitoring_timeout() {
   rtc_samd.disableAlarm();
@@ -157,7 +139,7 @@ void isr_bucket_monitoring_timeout() {
 }
 
 void isr_rtc_alarm(){
-  event_flag_measurement_timer ++;
+  event_flag_measurement_timer = 1;
 }
 
 void isr_float1() {
@@ -177,8 +159,7 @@ void isr_bucket(){
   setIncrementalAlarm(5);
 }
 
-void setIncrementalAlarm(byte increment_s)
-{
+void setIncrementalAlarm(byte increment_s){
   // Not sure this is necessary...
   rtc_samd.disableAlarm();
 
@@ -205,5 +186,21 @@ String get_timestamp_str(){
   sprintf(buffer, "%d-%.2d-%.2d %d:%.2d:%.2d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
   String buffer_str = buffer;
   return buffer_str;
+}
+
+void log_to_sd(String str){
+
+    File dataFile = SD.open("datalog.txt", FILE_WRITE);
+    // if the file is available, write to it:
+    if (dataFile) {
+      dataFile.print(str);
+      dataFile.close();
+      // print to the serial port too:
+      Serial.print(str);
+    }
+    // if the file isn't open, pop up an error:
+    else {
+      Serial.println("error opening datalog.txt");
+    }
 }
 
