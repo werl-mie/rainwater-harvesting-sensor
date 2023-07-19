@@ -81,11 +81,7 @@ void setup() {
   pinMode(PIN_RTC_INT, INPUT_PULLUP);
 
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT0, isr_float1, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(PIN_SNS_FLOAT0), isr_float1, CHANGE);
-
   LowPower.attachInterruptWakeup(PIN_SNS_BUCKET, isr_bucket, RISING);
-  attachInterrupt(digitalPinToInterrupt(PIN_SNS_BUCKET), isr_bucket, RISING);
-
   LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_rtc_alarm, FALLING);
 
 
