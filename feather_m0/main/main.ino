@@ -13,15 +13,19 @@ Adafruit_AHTX0 aht;
 
 
 // Pin assignments
-#define PIN_CHIP_SELECT 10
-#define PIN_SNS_FLOAT0 6
 #define PIN_RTC_INT 5
-#define PIN_SNS_BUCKET 9
+#define PIN_CHIP_SELECT 10
+
+#define PIN_SNS_BUCKET 6
+#define PIN_SNS_FLOAT0 9
+#define PIN_SNS_FLOAT1 11
+#define PIN_SNS_FLOAT2 12
 
 #define PIN_POT A0
 
-// Constants
-#define COUNTER_TIMEOUT 3
+// Parameters
+#define COUNTER_TIMEOUT_BUCKET 5
+#define MEAUSREMENT_PERIOD_S 30
 
 const byte seconds = 50;
 const byte minutes = 59;
@@ -32,13 +36,13 @@ const byte month = 6;
 const byte year = 15;
 
 // Variables
-volatile int event_flag_measurement_timer = 0;
-volatile int event_flag_bucket_monitoring_timeout = 0;
-volatile int event_flag_first_bucket_count = 0;
-volatile int event_flag_float1 = 0;
+volatile int flag_measurement_timer = 0;
+volatile int flag_counter_timeout_bucket = 0;
+volatile int flag_first_count_bucket = 0;
+volatile int flag_float0_change, flag_float1_change, flag_float2_change = 0;
 
 volatile int counter_bucket = 0;
-volatile int val_float1 = 0;
+volatile int val_float0, val_float1, val_float2 = 0;
 sensors_event_t val_rh, val_temp;
 
 String ts_first_bucket_count = "";
@@ -65,8 +69,9 @@ void setup() {
 
   rtc_pcf.adjust(DateTime(2023, 7, 19, 12, 18, 0));
   rtc_pcf.deconfigureAllTimers();
-  rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, 30); 
-  LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_rtc_alarm, FALLING);
+  rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, MEAUSREMENT_PERIOD_S); 
+  
+  
 
   rtc_samd.begin();
   rtc_samd.setDate(day, month, year);
@@ -74,48 +79,71 @@ void setup() {
   rtc_samd.attachInterrupt(isr_bucket_monitoring_timeout);
 
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(PIN_SNS_FLOAT0, INPUT_PULLUP);
-  pinMode(PIN_SNS_BUCKET, INPUT_PULLUP);
+
   pinMode(PIN_RTC_INT, INPUT_PULLUP);
+  pinMode(PIN_SNS_BUCKET, INPUT_PULLUP);
+  pinMode(PIN_SNS_FLOAT0, INPUT_PULLUP);
+  pinMode(PIN_SNS_FLOAT1, INPUT_PULLUP);
+  pinMode(PIN_SNS_FLOAT2, INPUT_PULLUP);
 
-  LowPower.attachInterruptWakeup(PIN_SNS_FLOAT0, isr_float1, CHANGE);
+  LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_rtc_alarm, FALLING);  
   LowPower.attachInterruptWakeup(PIN_SNS_BUCKET, isr_bucket, RISING);
+  LowPower.attachInterruptWakeup(PIN_SNS_FLOAT0, isr_float0, CHANGE);
+  LowPower.attachInterruptWakeup(PIN_SNS_FLOAT1, isr_float1, CHANGE);
+  LowPower.attachInterruptWakeup(PIN_SNS_FLOAT2, isr_float2, CHANGE);
   
-
-
+  
+  
   digitalWrite(LED_BUILTIN,LOW);
 }
 
 void loop() {
   
-  while (event_flag_float1 || event_flag_measurement_timer || event_flag_bucket_monitoring_timeout || event_flag_first_bucket_count){
-    if (event_flag_float1) {
+  while (flag_float0_change || flag_float1_change || flag_float2_change || flag_measurement_timer || flag_counter_timeout_bucket || flag_first_count_bucket){
+    if (flag_float0_change) {
       noInterrupts();
-      log_to_sd(get_timestamp_str() + ",Float1LevelChange,"+ String(val_float1) + "\n");
-      event_flag_float1 = 0;
+      log_to_sd(get_timestamp_str() + ",Float0LevelChange," + String(val_float0) + "\n");
+      flag_float0_change = 0;
       interrupts();
     }
 
-    if (event_flag_measurement_timer){
+    if (flag_float1_change) {
+      noInterrupts();
+      log_to_sd(get_timestamp_str() + ",Float1LevelChange," + String(val_float1) + "\n");
+      flag_float1_change = 0;
+      interrupts();
+    }
+
+    if (flag_float2_change) {
+      noInterrupts();
+      log_to_sd(get_timestamp_str() + ",Float2LevelChange," + String(val_float2) + "\n");
+      flag_float2_change = 0;
+      interrupts();
+    }
+
+    if (flag_measurement_timer){
       noInterrupts();
       aht.getEvent(&val_rh, &val_temp);
 
-      log_to_sd(get_timestamp_str() + ",TempC," + String(val_temp.temperature) + ",RH," + String(val_rh.relative_humidity) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT0)) + "\n");
+      log_to_sd(get_timestamp_str() + ",TempC," + String(val_temp.temperature) + ",RH," + String(val_rh.relative_humidity) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
 
-      event_flag_measurement_timer = 0;
+      flag_measurement_timer = 0;
       interrupts();
     }
 
-    if (event_flag_first_bucket_count){
+    if (flag_first_count_bucket){
+      noInterrupts();
       ts_first_bucket_count = get_timestamp_str();
-      event_flag_first_bucket_count = 0;
+      flag_first_count_bucket = 0;
+      interrupts();
     }
 
-    if (event_flag_bucket_monitoring_timeout){
-      // Log to SD
+    if (flag_counter_timeout_bucket){
+      noInterrupts();
       log_to_sd(get_timestamp_str() + ",BucketFirstCountTime," + ts_first_bucket_count + ",BucketCounts," + String(counter_bucket) + "\n");
       counter_bucket = 0;
-      event_flag_bucket_monitoring_timeout = 0;
+      flag_counter_timeout_bucket = 0;
+      interrupts();
     }
     
   }
@@ -132,31 +160,42 @@ void loop() {
   LowPower.sleep();
 }
 
-
-void isr_bucket_monitoring_timeout() {
-  rtc_samd.disableAlarm();
-  event_flag_bucket_monitoring_timeout = 1;
-}
-
-void isr_rtc_alarm(){
-  event_flag_measurement_timer = 1;
+void isr_float0() {
+  flag_float0_change = 1;
+  val_float0 = digitalRead(PIN_SNS_FLOAT0);
 }
 
 void isr_float1() {
-  event_flag_float1 ++;
-  val_float1 = digitalRead(PIN_SNS_FLOAT0);
+  flag_float1_change = 1;
+  val_float1 = digitalRead(PIN_SNS_FLOAT1);
 }
+
+void isr_float2() {
+  flag_float2_change = 1;
+  val_float2 = digitalRead(PIN_SNS_FLOAT2);
+}
+
+
+void isr_bucket_monitoring_timeout() {
+  rtc_samd.disableAlarm();
+  flag_counter_timeout_bucket = 1;
+}
+
+void isr_rtc_alarm(){
+  flag_measurement_timer = 1;
+}
+
 
 void isr_bucket(){
 
   if (counter_bucket == 0){
     Serial.println("First bucket");
-    event_flag_first_bucket_count = 1;
+    flag_first_count_bucket = 1;
   }
 
   counter_bucket ++;
   
-  setIncrementalAlarm(5);
+  setIncrementalAlarm(COUNTER_TIMEOUT_BUCKET);
 }
 
 void setIncrementalAlarm(byte increment_s){
