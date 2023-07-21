@@ -25,7 +25,7 @@ Adafruit_AHTX0 aht;
 
 // Parameters
 #define COUNTER_TIMEOUT_BUCKET 5
-#define MEAUSREMENT_PERIOD_S 30
+#define MEAUSREMENT_PERIOD_S 60
 
 const byte seconds = 50;
 const byte minutes = 59;
@@ -48,29 +48,29 @@ sensors_event_t val_rh, val_temp;
 String ts_first_bucket_count = "";
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial);
+  // Serial.begin(9600);
+  // while (!Serial);
 
   if (!aht.begin()) {
-    Serial.println("Could not find AHT? Check wiring");
+    // Serial.println("Could not find AHT? Check wiring");
     while (1);
   }
 
   if (!SD.begin(chipSelect)) {
-    Serial.println("Card failed, or not present");
+    // Serial.println("Card failed, or not present");
     while (1);
   }
 
   if (! rtc_pcf.begin()) {
-    Serial.println("Couldn't find RTC");
-    Serial.flush();
+    // Serial.println("Couldn't find RTC");
+    // Serial.flush();
     while (1);
   }
 
-  rtc_pcf.adjust(DateTime(2023, 7, 19, 12, 18, 0));
+  rtc_pcf.adjust(DateTime(2023, 7, 20, 16, 47, 0));
   rtc_pcf.deconfigureAllTimers();
   rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, MEAUSREMENT_PERIOD_S); 
-  
+
   
 
   rtc_samd.begin();
@@ -91,8 +91,6 @@ void setup() {
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT0, isr_float0, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT1, isr_float1, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT2, isr_float2, CHANGE);
-  
-  
   
   digitalWrite(LED_BUILTIN,LOW);
 }
@@ -189,7 +187,7 @@ void isr_rtc_alarm(){
 void isr_bucket(){
 
   if (counter_bucket == 0){
-    Serial.println("First bucket");
+    // Serial.println("First bucket");
     flag_first_count_bucket = 1;
   }
 
@@ -235,11 +233,11 @@ void log_to_sd(String str){
       dataFile.print(str);
       dataFile.close();
       // print to the serial port too:
-      Serial.print(str);
+      // Serial.print(str);
     }
     // if the file isn't open, pop up an error:
     else {
-      Serial.println("error opening datalog.txt");
+      // Serial.println("error opening datalog.txt");
     }
 }
 
