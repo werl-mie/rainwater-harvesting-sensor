@@ -49,10 +49,10 @@ String ts_first_bucket_count = "";
 
 // Debug
 volatile int SD_failure = 0;
-volatile int aht_failutre = 0;
+volatile int aht_failure = 0;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial);
 
   if (!aht.begin()) {
@@ -132,7 +132,7 @@ void loop() {
 
       log_to_sd(get_timestamp_str() + ",TempC," + String(val_temp.temperature) + ",RH," + String(val_rh.relative_humidity) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
 
-      flag_measurement_timer = 0;
+      // flag_measurement_timer = 0;
       interrupts();
 
       if (aht_failure){
