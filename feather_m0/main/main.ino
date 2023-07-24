@@ -20,6 +20,7 @@ RTC_PCF8523 rtc_pcf;
 #define PIN_SNS_FLOAT2 12
 
 #define PIN_POT A0
+#define PIN_VBAT A0
 
 // Parameters
 #define COUNTER_TIMEOUT_BUCKET 5
@@ -125,7 +126,7 @@ void loop() {
     if (flag_measurement_timer){
       noInterrupts();
 
-      log_to_sd(get_timestamp_str() + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
+      log_to_sd(get_timestamp_str() + ",VBATRaw," + String(analogRead(PIN_VBAT)) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
 
       flag_measurement_timer = 0;
       interrupts();
@@ -154,15 +155,6 @@ void loop() {
     }
     
   }
-
-  // ---- Periodic readings ---- //
-  // sensorValue = analogRead(analogInPin);
-  // outputValue = map(sensorValue, 0, 1023, 0, 270);
-
-  // Humidity sensor
-
-  // Timestamp
-  
 
   LowPower.sleep();
 }
@@ -230,7 +222,6 @@ String get_timestamp_str(){
   sprintf(sprintf_buffer, "%d-%.2d-%.2d %.2d:%.2d:%.2d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
   buffer_str = sprintf_buffer;
   return buffer_str;
-  // return "TS";
 }
 
 void log_to_sd(String str){
@@ -239,9 +230,15 @@ void log_to_sd(String str){
     // if the file is available, write to it:
     if (dataFile) {
       dataFile.print(str);
+      
+      digitalWrite(BUILTIN_LED,HIGH);
+      delay(10);
+      digitalWrite(BUILTIN_LED,LOW);
+
       dataFile.close();
+
       // print to the serial port too:
-      Serial.print(str);
+      // Serial.print(str);
     }
     // if the file isn't open, pop up an error:
     else {
