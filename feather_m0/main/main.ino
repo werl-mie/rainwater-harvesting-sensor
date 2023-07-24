@@ -47,13 +47,21 @@ sensors_event_t val_rh, val_temp;
 
 String ts_first_bucket_count = "";
 
+File dataFile;
+DateTime now;
+char sprintf_buffer[19]; //timestamp string is exactly 19 characters long
+String buffer_str = "";
+
+byte seconds_new = 0;
+byte minutes_new = 0;
+
 // Debug
 volatile int SD_failure = 0;
 volatile int aht_failure = 0;
 
 void setup() {
-  Serial.begin(115200);
-  while (!Serial);
+  // Serial.begin(115200);
+  // while (!Serial);
 
   if (!aht.begin()) {
     // Serial.println("Could not find AHT? Check wiring");
@@ -74,8 +82,6 @@ void setup() {
   rtc_pcf.adjust(DateTime(2023, 7, 20, 16, 47, 0));
   rtc_pcf.deconfigureAllTimers();
   rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, MEAUSREMENT_PERIOD_S); 
-
-  
 
   rtc_samd.begin();
   rtc_samd.setDate(day, month, year);
@@ -134,6 +140,9 @@ void loop() {
 
       // flag_measurement_timer = 0;
       interrupts();
+
+      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+      delay(1);
 
       if (aht_failure){
         while(1){
@@ -221,8 +230,8 @@ void setIncrementalAlarm(byte increment_s){
   // Not sure this is necessary...
   rtc_samd.disableAlarm();
 
-  byte seconds_new = rtc_samd.getSeconds() + increment_s - 1;
-  byte minutes_new = rtc_samd.getMinutes();
+  seconds_new = rtc_samd.getSeconds() + increment_s - 1;
+  minutes_new = rtc_samd.getMinutes();
 
   if (seconds_new > 59){
     seconds_new = seconds_new - 60;
@@ -238,17 +247,16 @@ void setIncrementalAlarm(byte increment_s){
 }
 
 String get_timestamp_str(){
-  DateTime now = rtc_pcf.now();
-
-  char buffer[40];
-  sprintf(buffer, "%d-%.2d-%.2d %d:%.2d:%.2d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
-  String buffer_str = buffer;
+  now = rtc_pcf.now();
+  sprintf(sprintf_buffer, "%d-%.2d-%.2d %.2d:%.2d:%.2d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+  buffer_str = sprintf_buffer;
   return buffer_str;
+  // return "TS";
 }
 
 void log_to_sd(String str){
 
-    File dataFile = SD.open("datalog.txt", FILE_WRITE);
+    dataFile = SD.open("datalog.txt", FILE_WRITE);
     // if the file is available, write to it:
     if (dataFile) {
       dataFile.print(str);
