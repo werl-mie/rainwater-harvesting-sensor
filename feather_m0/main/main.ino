@@ -25,7 +25,7 @@ Adafruit_AHTX0 aht;
 
 // Parameters
 #define COUNTER_TIMEOUT_BUCKET 5
-#define MEAUSREMENT_PERIOD_S 60
+#define MEAUSREMENT_PERIOD_S 10
 
 const byte seconds = 50;
 const byte minutes = 59;
@@ -47,9 +47,13 @@ sensors_event_t val_rh, val_temp;
 
 String ts_first_bucket_count = "";
 
+// Debug
+volatile int SD_failure = 0;
+volatile int aht_failutre = 0;
+
 void setup() {
-  // Serial.begin(9600);
-  // while (!Serial);
+  Serial.begin(9600);
+  while (!Serial);
 
   if (!aht.begin()) {
     // Serial.println("Could not find AHT? Check wiring");
@@ -121,12 +125,22 @@ void loop() {
 
     if (flag_measurement_timer){
       noInterrupts();
-      aht.getEvent(&val_rh, &val_temp);
+
+      if (!aht.getEvent(&val_rh, &val_temp)){
+        aht_failure = 1;
+      }
 
       log_to_sd(get_timestamp_str() + ",TempC," + String(val_temp.temperature) + ",RH," + String(val_rh.relative_humidity) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
 
       flag_measurement_timer = 0;
       interrupts();
+
+      if (aht_failure){
+        while(1){
+          digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+          delay(250);
+        }
+      }
     }
 
     if (flag_first_count_bucket){
@@ -142,6 +156,13 @@ void loop() {
       counter_bucket = 0;
       flag_counter_timeout_bucket = 0;
       interrupts();
+    }
+
+    if (SD_failure) {
+       while(1){
+        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+        delay(1000);
+      }
     }
     
   }
@@ -233,11 +254,12 @@ void log_to_sd(String str){
       dataFile.print(str);
       dataFile.close();
       // print to the serial port too:
-      // Serial.print(str);
+      Serial.print(str);
     }
     // if the file isn't open, pop up an error:
     else {
       // Serial.println("error opening datalog.txt");
+      SD_failure = 1;
     }
 }
 
