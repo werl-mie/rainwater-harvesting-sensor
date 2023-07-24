@@ -1,5 +1,4 @@
 #include "ArduinoLowPower.h"
-#include <Adafruit_AHTX0.h>
 #include <RTCZero.h>
 #include "RTClib.h"
 #include <SPI.h>
@@ -9,7 +8,6 @@ const int chipSelect = 10;
 
 RTCZero rtc_samd;
 RTC_PCF8523 rtc_pcf;
-Adafruit_AHTX0 aht;
 
 
 // Pin assignments
@@ -43,7 +41,6 @@ volatile int flag_float0_change, flag_float1_change, flag_float2_change = 0;
 
 volatile int counter_bucket = 0;
 volatile int val_float0, val_float1, val_float2 = 0;
-sensors_event_t val_rh, val_temp;
 
 String ts_first_bucket_count = "";
 
@@ -57,16 +54,12 @@ byte minutes_new = 0;
 
 // Debug
 volatile int SD_failure = 0;
-volatile int aht_failure = 0;
+
 
 void setup() {
   // Serial.begin(115200);
   // while (!Serial);
 
-  if (!aht.begin()) {
-    // Serial.println("Could not find AHT? Check wiring");
-    while (1);
-  }
 
   if (!SD.begin(chipSelect)) {
     // Serial.println("Card failed, or not present");
@@ -132,24 +125,10 @@ void loop() {
     if (flag_measurement_timer){
       noInterrupts();
 
-      if (!aht.getEvent(&val_rh, &val_temp)){
-        aht_failure = 1;
-      }
+      log_to_sd(get_timestamp_str() + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
 
-      log_to_sd(get_timestamp_str() + ",TempC," + String(val_temp.temperature) + ",RH," + String(val_rh.relative_humidity) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
-
-      // flag_measurement_timer = 0;
+      flag_measurement_timer = 0;
       interrupts();
-
-      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-      delay(1);
-
-      if (aht_failure){
-        while(1){
-          digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-          delay(250);
-        }
-      }
     }
 
     if (flag_first_count_bucket){
@@ -266,7 +245,6 @@ void log_to_sd(String str){
     }
     // if the file isn't open, pop up an error:
     else {
-      // Serial.println("error opening datalog.txt");
       SD_failure = 1;
     }
 }
