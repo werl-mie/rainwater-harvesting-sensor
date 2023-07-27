@@ -3,12 +3,19 @@
 #include "RTClib.h"
 #include <SPI.h>
 #include <SD.h>
+#include <Adafruit_SleepyDog.h>
 
 const int chipSelect = 10;
 
 RTCZero rtc_samd;
 RTC_PCF8523 rtc_pcf;
 
+#define YEAR 23
+#define MONTH 7
+#define DAY 27
+#define HOUR 8
+#define MINUTE 29
+#define SECOND 0
 
 // Pin assignments
 #define PIN_RTC_INT 5
@@ -24,15 +31,8 @@ RTC_PCF8523 rtc_pcf;
 
 // Parameters
 #define COUNTER_TIMEOUT_BUCKET 3
-#define MEAUSREMENT_PERIOD_S 60
-
-const byte seconds = 50;
-const byte minutes = 59;
-const byte hours = 16;
-
-const byte day = 15;
-const byte month = 6;
-const byte year = 15;
+#define MEAUSREMENT_PERIOD_S 15
+#define WATCHDOG_COUNTDOWN_MS 16000 //This appears to be the maximum allowed by the hardware
 
 // Variables
 volatile int flag_measurement_timer = 0;
@@ -61,11 +61,14 @@ void setup() {
   // Serial.begin(115200);
   // while (!Serial);
 
+  Watchdog.enable(WATCHDOG_COUNTDOWN_MS);
 
   if (!SD.begin(chipSelect)) {
     // Serial.println("Card failed, or not present");
     while (1);
   }
+
+  log_to_sd("SD card found...\n");
 
   if (!rtc_pcf.begin()) {
     // Serial.println("Couldn't find RTC");
@@ -73,13 +76,15 @@ void setup() {
     while (1);
   }
 
-  rtc_pcf.adjust(DateTime(2023, 7, 25, 15, 57, 0));
+  log_to_sd("RTC found...\n");
+
+  // rtc_pcf.adjust(DateTime(YEAR + 2000, MONTH, DAY, HOUR, MINUTE, SECOND));
   rtc_pcf.deconfigureAllTimers();
   rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, MEAUSREMENT_PERIOD_S); 
 
   rtc_samd.begin();
-  rtc_samd.setDate(day, month, year);
-  rtc_samd.setTime(hours, minutes, seconds);
+  rtc_samd.setDate(DAY, MONTH, YEAR);
+  rtc_samd.setTime(HOUR, MINUTE, SECOND);
   rtc_samd.attachInterrupt(isr_bucket_monitoring_timeout);
 
   pinMode(LED_BUILTIN, OUTPUT);
@@ -156,6 +161,7 @@ void loop() {
     
   }
 
+  Watchdog.reset();
   LowPower.sleep();
 }
 
