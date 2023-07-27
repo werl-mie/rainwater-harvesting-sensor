@@ -20,11 +20,11 @@ RTC_PCF8523 rtc_pcf;
 #define PIN_SNS_FLOAT2 12
 
 #define PIN_POT A0
-#define PIN_VBAT A0
+#define PIN_VBAT A1
 
 // Parameters
-#define COUNTER_TIMEOUT_BUCKET 5
-#define MEAUSREMENT_PERIOD_S 10
+#define COUNTER_TIMEOUT_BUCKET 3
+#define MEAUSREMENT_PERIOD_S 60
 
 const byte seconds = 50;
 const byte minutes = 59;
@@ -67,13 +67,13 @@ void setup() {
     while (1);
   }
 
-  if (! rtc_pcf.begin()) {
+  if (!rtc_pcf.begin()) {
     // Serial.println("Couldn't find RTC");
     // Serial.flush();
     while (1);
   }
 
-  rtc_pcf.adjust(DateTime(2023, 7, 20, 16, 47, 0));
+  rtc_pcf.adjust(DateTime(2023, 7, 25, 15, 57, 0));
   rtc_pcf.deconfigureAllTimers();
   rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, MEAUSREMENT_PERIOD_S); 
 
@@ -230,10 +230,10 @@ void log_to_sd(String str){
     // if the file is available, write to it:
     if (dataFile) {
       dataFile.print(str);
-      
-      digitalWrite(BUILTIN_LED,HIGH);
+
+      digitalWrite(LED_BUILTIN,HIGH);
       delay(10);
-      digitalWrite(BUILTIN_LED,LOW);
+      digitalWrite(LED_BUILTIN,LOW);
 
       dataFile.close();
 
