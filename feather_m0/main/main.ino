@@ -21,10 +21,13 @@ RTC_PCF8523 rtc_pcf;
 #define PIN_RTC_INT 5
 #define PIN_CHIP_SELECT 10
 
+#define PIN_LED_EXT 1
+#define PIN_SNS_BUT_EXT 0
 #define PIN_SNS_BUCKET 6
 #define PIN_SNS_FLOAT0 9
 #define PIN_SNS_FLOAT1 11
 #define PIN_SNS_FLOAT2 12
+
 
 #define PIN_POT A0
 #define PIN_VBAT A1
@@ -34,11 +37,14 @@ RTC_PCF8523 rtc_pcf;
 #define MEAUSREMENT_PERIOD_S 15
 #define WATCHDOG_COUNTDOWN_MS 16000 //This appears to be the maximum allowed by the hardware
 
+#define NUM_STATUS_OK_BLINKS 2
+#define STATUS_OK_BLINK_PERIOD_MS 1000
+
 // Variables
 volatile int flag_measurement_timer = 0;
 volatile int flag_counter_timeout_bucket = 0;
 volatile int flag_first_count_bucket = 0;
-volatile int flag_float0_change, flag_float1_change, flag_float2_change = 0;
+volatile int flag_float0_change, flag_float1_change, flag_float2_change, flag_but_ext = 0;
 
 volatile int counter_bucket = 0;
 volatile int val_float0, val_float1, val_float2 = 0;
@@ -55,6 +61,7 @@ byte minutes_new = 0;
 
 // Debug
 volatile int SD_failure = 0;
+int led_ext_counter = 0;
 
 
 void setup() {
@@ -88,25 +95,29 @@ void setup() {
   rtc_samd.attachInterrupt(isr_bucket_monitoring_timeout);
 
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(PIN_LED_EXT, OUTPUT);
 
   pinMode(PIN_RTC_INT, INPUT_PULLUP);
   pinMode(PIN_SNS_BUCKET, INPUT_PULLUP);
   pinMode(PIN_SNS_FLOAT0, INPUT_PULLUP);
   pinMode(PIN_SNS_FLOAT1, INPUT_PULLUP);
   pinMode(PIN_SNS_FLOAT2, INPUT_PULLUP);
+  pinMode(PIN_SNS_BUT_EXT, INPUT_PULLUP);
 
   LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_rtc_alarm, FALLING);  
   LowPower.attachInterruptWakeup(PIN_SNS_BUCKET, isr_bucket, RISING);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT0, isr_float0, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT1, isr_float1, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT2, isr_float2, CHANGE);
+  LowPower.attachInterruptWakeup(PIN_SNS_BUT_EXT, isr_but_ext, FALLING);
   
   digitalWrite(LED_BUILTIN,LOW);
+  digitalWrite(PIN_LED_EXT,LOW);
 }
 
 void loop() {
   
-  while (flag_float0_change || flag_float1_change || flag_float2_change || flag_measurement_timer || flag_counter_timeout_bucket || flag_first_count_bucket){
+  while (flag_float0_change || flag_float1_change || flag_float2_change || flag_measurement_timer || flag_counter_timeout_bucket || flag_first_count_bucket || flag_but_ext){
     if (flag_float0_change) {
       noInterrupts();
       log_to_sd(get_timestamp_str() + ",Float0LevelChange," + String(val_float0) + "\n");
@@ -152,6 +163,15 @@ void loop() {
       interrupts();
     }
 
+    if (flag_but_ext) {
+      for (led_ext_counter = 0; led_ext_counter < NUM_STATUS_OK_BLINKS*2; led_ext_counter ++){
+        digitalWrite(PIN_LED_EXT, !digitalRead(PIN_LED_EXT));
+        delay(STATUS_OK_BLINK_PERIOD_MS);
+      }
+
+      flag_but_ext = 0;
+    }
+
     if (SD_failure) {
        while(1){
         digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
@@ -178,6 +198,10 @@ void isr_float1() {
 void isr_float2() {
   flag_float2_change = 1;
   val_float2 = digitalRead(PIN_SNS_FLOAT2);
+}
+
+void isr_but_ext() {
+  flag_but_ext = 1;
 }
 
 
