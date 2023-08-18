@@ -22,7 +22,7 @@
 
 #include "RTClib.h"
 
-RTC_PCF8523 rtc;
+RTC_DS3231 rtc;
 
 // Input pin with interrupt capability
 // const int timerInterruptPin = 2;  // Most Arduinos
@@ -33,7 +33,7 @@ volatile bool countdownInterruptTriggered = false;
 volatile int numCountdownInterrupts = 0;
 
 void setup () {
-  Serial.begin(9600);
+  Serial.begin(57600);
 
 #ifndef ESP8266
   while (!Serial); // wait for serial port to connect. Needed for native USB
@@ -45,60 +45,34 @@ void setup () {
     while (1) delay(10);
   }
 
+  rtc.disable32K();
+
   pinMode(LED_BUILTIN, OUTPUT);
 
   // Set the pin attached to PCF8523 INT to be an input with pullup to HIGH.
   // The PCF8523 interrupt pin will briefly pull it LOW at the end of a given
   // countdown period, then it will be released to be pulled HIGH again.
   pinMode(timerInterruptPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(timerInterruptPin), countdownOver, FALLING);
+
+  rtc.clearAlarm(1);
+  rtc.clearAlarm(2);
+  rtc.writeSqwPinMode(DS3231_OFF);
+  rtc.disableAlarm(2);
 
   Serial.println(F("\nStarting PCF8523 Countdown Timer example."));
   Serial.print(F("Configured to expect PCF8523 INT/SQW pin connected to input pin: "));
   Serial.println(timerInterruptPin);
   Serial.println(F("This example will not work without the interrupt pin connected!\n\n"));
 
-  // Timer configuration is not cleared on an RTC reset due to battery backup!
-  rtc.deconfigureAllTimers();
+  rtc.setAlarm1(rtc.now() + TimeSpan(2),DS3231_A1_Second);
+
 
   Serial.println(F("First, use the PCF8523's 'Countdown Timer' with an interrupt."));
   Serial.println(F("Set the countdown for 10 seconds and we'll let it run for 2 rounds."));
   Serial.println(F("Starting Countdown Timer now..."));
 
-  // These are the PCF8523's built-in "Timer Source Clock Frequencies".
-  // They are predefined time periods you choose as your base unit of time,
-  // depending on the length of countdown timer you need.
-  // The minimum length of your countdown is 1 time period.
-  // The maximum length of your countdown is 255 time periods.
-  //
-  // PCF8523_FrequencyHour   = 1 hour, max 10.625 days (255 hours)
-  // PCF8523_FrequencyMinute = 1 minute, max 4.25 hours
-  // PCF8523_FrequencySecond = 1 second, max 4.25 minutes
-  // PCF8523_Frequency64Hz   = 1/64 of a second (15.625 milliseconds), max 3.984 seconds
-  // PCF8523_Frequency4kHz   = 1/4096 of a second (244 microseconds), max 62.256 milliseconds
-  //
-  //
-  // These are the PCF8523's optional 'Low Pulse Widths' of time the interrupt
-  // pin is held LOW at the end of every countdown (frequency 64Hz or longer).
-  //
-  // PCF8523_LowPulse3x64Hz  =  46.875 ms   3/64ths second (default)
-  // PCF8523_LowPulse4x64Hz  =  62.500 ms   4/64ths second
-  // PCF8523_LowPulse5x64Hz  =  78.125 ms   5/64ths second
-  // PCF8523_LowPulse6x64Hz  =  93.750 ms   6/64ths second
-  // PCF8523_LowPulse8x64Hz  = 125.000 ms   8/64ths second
-  // PCF8523_LowPulse10x64Hz = 156.250 ms  10/64ths second
-  // PCF8523_LowPulse12x64Hz = 187.500 ms  12/64ths second
-  // PCF8523_LowPulse14x64Hz = 218.750 ms  14/64ths second
-  //
-  //
-  // Uncomment an example below:
-  // rtc.enableCountdownTimer(PCF8523_FrequencyHour, 24);    // 1 day
-  // rtc.enableCountdownTimer(PCF8523_FrequencyMinute, 150); // 2.5 hours
-  rtc.enableCountdownTimer(PCF8523_FrequencySecond, 5);  // 10 seconds
-  // rtc.enableCountdownTimer(PCF8523_Frequency64Hz, 32);    // 1/2 second
-  // rtc.enableCountdownTimer(PCF8523_Frequency64Hz, 16);    // 1/4 second
-  // rtc.enableCountdownTimer(PCF8523_Frequency4kHz, 205);   // 50 milliseconds
-
-  attachInterrupt(digitalPinToInterrupt(timerInterruptPin), countdownOver, FALLING);
+  
 
   // This message proves we're not blocked while counting down!
   Serial.println(F("  While we're waiting, a word of caution:"));
@@ -127,6 +101,9 @@ void loop () {
       digitalWrite(LED_BUILTIN, LOW);
     }
     
+    rtc.clearAlarm(1);
+    rtc.setAlarm1(rtc.now() + TimeSpan(1),DS3231_A1_Second);
+
     countdownInterruptTriggered = false;
   }
 

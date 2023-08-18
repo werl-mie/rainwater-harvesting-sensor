@@ -8,7 +8,8 @@
 #include "Adafruit_AM2320.h"
 
 RTCZero rtc_samd;
-RTC_PCF8523 rtc_pcf;
+// RTC_PCF8523 rtc_pcf;
+RTC_DS3231 rtc_ds;
 Adafruit_AM2320 am2320 = Adafruit_AM2320();
 
 #define YEAR 23
@@ -24,11 +25,10 @@ Adafruit_AM2320 am2320 = Adafruit_AM2320();
 
 #define PIN_LED_EXT 13
 #define PIN_SNS_BUT_EXT 1
-#define PIN_SNS_BUCKET 9
-#define PIN_SNS_FLOAT0 6
-#define PIN_SNS_FLOAT1 10
-#define PIN_SNS_FLOAT2 11
-#define PIN_SNS_FLOAT3 12
+#define PIN_SNS_BUCKET 6
+#define PIN_SNS_FLOAT0 10
+#define PIN_SNS_FLOAT1 11
+#define PIN_SNS_FLOAT2 12
 
 
 #define PIN_POT A1
@@ -36,7 +36,7 @@ Adafruit_AM2320 am2320 = Adafruit_AM2320();
 
 // Parameters
 #define COUNTER_TIMEOUT_BUCKET 10
-#define MEAUSREMENT_PERIOD_S 15
+#define MEASUREMENT_PERIOD_S 15
 #define WATCHDOG_COUNTDOWN_MS 16000 //This appears to be the maximum allowed by the hardware
 
 #define NUM_STATUS_OK_BLINKS 2
@@ -46,10 +46,10 @@ Adafruit_AM2320 am2320 = Adafruit_AM2320();
 volatile int flag_measurement_timer = 0;
 volatile int flag_counter_timeout_bucket = 0;
 volatile int flag_first_count_bucket = 0;
-volatile int flag_float0_change, flag_float1_change, flag_float2_change, flag_float3_change, flag_but_ext = 0;
+volatile int flag_float0_change, flag_float1_change, flag_float2_change, flag_but_ext = 0;
 
 volatile int counter_bucket = 0;
-volatile int val_float0, val_float1, val_float2, val_float3 = 0;
+volatile int val_float0, val_float1, val_float2 = 0;
 
 String ts_first_bucket_count = "";
 
@@ -69,6 +69,8 @@ int led_ext_counter = 0;
 void setup() {
   // Serial.begin(115200);
   // while (!Serial);
+  // Serial.println("HELLO");
+
 
   Watchdog.enable(WATCHDOG_COUNTDOWN_MS);
 
@@ -79,7 +81,7 @@ void setup() {
 
   log_to_sd("SD card found...\n");
 
-  if (!rtc_pcf.begin()) {
+  if (!rtc_ds.begin()) {
     // Serial.println("Couldn't find RTC");
     // Serial.flush();
     while (1);
@@ -87,13 +89,21 @@ void setup() {
 
   log_to_sd("RTC found...\n");
 
+  rtc_ds.disable32K();
+  rtc_ds.clearAlarm(1);
+  rtc_ds.clearAlarm(2);
+  rtc_ds.writeSqwPinMode(DS3231_OFF);
+  rtc_ds.disableAlarm(2);
+
+  // if (!am2320.begin()) while (1);
   am2320.begin();
 
   log_to_sd("AM2320 found...\n");
+  
 
   // rtc_pcf.adjust(DateTime(YEAR + 2000, MONTH, DAY, HOUR, MINUTE, SECOND));
-  rtc_pcf.deconfigureAllTimers();
-  rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, MEAUSREMENT_PERIOD_S); 
+  // rtc_pcf.deconfigureAllTimers();
+  // rtc_pcf.enableCountdownTimer(PCF8523_FrequencySecond, MEASUREMENT_PERIOD_S); 
 
   rtc_samd.begin();
   rtc_samd.setDate(DAY, MONTH, YEAR);
@@ -108,7 +118,6 @@ void setup() {
   pinMode(PIN_SNS_FLOAT0, INPUT_PULLUP);
   pinMode(PIN_SNS_FLOAT1, INPUT_PULLUP);
   pinMode(PIN_SNS_FLOAT2, INPUT_PULLUP);
-  pinMode(PIN_SNS_FLOAT3, INPUT_PULLUP);
   pinMode(PIN_SNS_BUT_EXT, INPUT_PULLUP);
 
   LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_rtc_alarm, FALLING);  
@@ -116,8 +125,9 @@ void setup() {
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT0, isr_float0, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT1, isr_float1, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOAT2, isr_float2, CHANGE);
-  LowPower.attachInterruptWakeup(PIN_SNS_FLOAT3, isr_float3, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_BUT_EXT, isr_but_ext, FALLING);
+
+  rtc_ds.setAlarm1(rtc_ds.now() + TimeSpan(MEASUREMENT_PERIOD_S),DS3231_A1_Second);
   
   digitalWrite(LED_BUILTIN,LOW);
   digitalWrite(PIN_LED_EXT,LOW);
@@ -125,7 +135,7 @@ void setup() {
 
 void loop() {
   
-  while (flag_float0_change || flag_float1_change || flag_float2_change || flag_float3_change || flag_measurement_timer || flag_counter_timeout_bucket || flag_first_count_bucket || flag_but_ext){
+  while (flag_float0_change || flag_float1_change || flag_float2_change || flag_measurement_timer || flag_counter_timeout_bucket || flag_first_count_bucket || flag_but_ext){
     if (flag_float0_change) {
       noInterrupts();
       log_to_sd(get_timestamp_str() + ",Float0LevelChange," + String(val_float0) + "\n");
@@ -147,17 +157,13 @@ void loop() {
       interrupts();
     }
 
-    if (flag_float3_change) {
-      noInterrupts();
-      log_to_sd(get_timestamp_str() + ",Float3LevelChange," + String(val_float3) + "\n");
-      flag_float3_change = 0;
-      interrupts();
-    }
-
     if (flag_measurement_timer){
       noInterrupts();
 
-      log_to_sd(get_timestamp_str() + ",T_am2320," + am2320.readTemperature() + ",VBATRaw," + String(analogRead(PIN_VBAT)) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + ",Float3Level," + String(digitalRead(PIN_SNS_FLOAT3)) + "\n");
+      log_to_sd(get_timestamp_str() + ",T_rtc," + rtc_ds.getTemperature() + ",T_am2320," + am2320.readTemperature() + ",VBATRaw," + String(analogRead(PIN_VBAT)) + ",TankLevelRaw," + String(analogRead(PIN_POT)) + ",Float0Level," + String(digitalRead(PIN_SNS_FLOAT0)) + ",Float1Level," + String(digitalRead(PIN_SNS_FLOAT1)) + ",Float2Level," + String(digitalRead(PIN_SNS_FLOAT2)) + "\n");
+
+      rtc_ds.clearAlarm(1);
+      rtc_ds.setAlarm1(rtc_ds.now() + TimeSpan(MEASUREMENT_PERIOD_S),DS3231_A1_Second);
 
       flag_measurement_timer = 0;
       interrupts();
@@ -219,11 +225,6 @@ void isr_float2() {
   val_float2 = digitalRead(PIN_SNS_FLOAT2);
 }
 
-void isr_float3() {
-  flag_float3_change = 1;
-  val_float3 = digitalRead(PIN_SNS_FLOAT3);
-}
-
 void isr_but_ext() {
   flag_but_ext = 1;
 }
@@ -272,7 +273,7 @@ void setIncrementalAlarm(byte increment_s){
 }
 
 String get_timestamp_str(){
-  now = rtc_pcf.now();
+  now = rtc_ds.now();
   sprintf(sprintf_buffer, "%d-%.2d-%.2d %.2d:%.2d:%.2d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
   buffer_str = sprintf_buffer;
   return buffer_str;
@@ -286,7 +287,7 @@ void log_to_sd(String str){
       dataFile.print(str);
 
       // digitalWrite(LED_BUILTIN,HIGH);
-      // delay(10);
+      // delay(20);
       // digitalWrite(LED_BUILTIN,LOW);
 
       dataFile.close();
