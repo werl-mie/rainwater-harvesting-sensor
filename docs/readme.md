@@ -1,3 +1,0 @@
-# docs
-
-> An awesome project.
