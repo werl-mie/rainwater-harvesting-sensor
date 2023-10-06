@@ -1,5 +1,3 @@
-# Rainwater Harvesting Sensor
+# Headline
 
-This is the rainwater harvesting sensor knowledge repo!
-
-Mermaid test
+> An awesome project.
