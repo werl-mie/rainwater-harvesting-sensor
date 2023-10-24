@@ -1,31 +1,48 @@
 #!/usr/bin/env python3
 
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
+
 
 df = pd.read_csv(
-    "out_clean.csv",
+    "sensor_rainfall_merged.csv",
     parse_dates=True,
+    index_col="ts",
     usecols=[
         "ts",
-        "temp",
-        "vbat_raw",
-        "tank_raw",
-        "float0",
-        "float1",
-        "float2",
-        "float3",
+        # "temp_2m",
+        "rain_mm",
+        # "temp",
+        # "vbat_raw",
+        # "tank_raw",
+        # "float0",
+        # "float1",
+        # "float2",
+        # "float3",
+        "bucket_counts",
     ],
 )
 
-fig = px.line(
-    df,
-    x="ts",
-    y=df.columns,
-    hover_data={"ts": "|%B %d, %Y"},
-    title="custom tick labels",
-)
+df = df.rename(columns={"bucket_counts": "rain (bucket_counts)"})
 
-fig.update_xaxes(dtick="M1", tickformat="%b\n%Y")
+# labels = [
+#     "temp",
+#     "rain",
+#     "vbat",
+#     "tank_raw",
+#     "cistern_level_hi",
+#     "cistern_level_lo",
+#     "tlq_level_lo",
+#     "tlq_level_high",
+#     "bucket_counts",
+# ]
 
-fig.show()
+# axes = df.plot(subplots=[("temp_2m", "temp")], sharex=True)
+axes = df.plot(subplots=True, sharex=True)
+
+# for i, ax in enumerate(axes):
+#     ax.set_ylabel(labels[i], rotation="horizontal", x=1000)
+
+
+plt.gcf().autofmt_xdate()
+plt.show()

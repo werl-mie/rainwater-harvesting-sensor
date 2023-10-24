@@ -4,6 +4,8 @@ import pandas as pd
 
 df = pd.read_csv("out.csv", index_col="ts", parse_dates=True)
 
+df.bucket_counts = df.bucket_counts.fillna(0)
+
 df = df.interpolate()
 
 # Won't interpolate the vbat yet, because it is not numeric
@@ -18,6 +20,7 @@ df = df.astype(
         "float1": int,
         "float2": int,
         "float3": int,
+        "bucket_counts": int,
     }
 )
 
