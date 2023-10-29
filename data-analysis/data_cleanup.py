@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-df = pd.read_csv("out.csv", index_col="ts", parse_dates=True)
+df = pd.read_csv("out2.csv", index_col="ts", parse_dates=True)
 
 df.bucket_counts = df.bucket_counts.fillna(0)
 
@@ -26,4 +26,4 @@ df = df.astype(
 
 df = df.interpolate()
 
-df.to_csv("out_clean.csv")
+df.to_csv("out2_clean.csv")

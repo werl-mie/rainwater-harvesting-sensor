@@ -5,7 +5,7 @@ import time
 from collections import deque
 
 raw_data = open("18 al 26 de septiembre.TXT", "r")
-out_data = open("out.csv", "w")
+out_data = open("out2.csv", "w")
 
 cb = deque("filller", maxlen=8)
 filter = [
@@ -27,7 +27,7 @@ out_data.writelines(
 latest_ts = pd.Timestamp("2023-08-18 18:39:15")
 
 
-for line in raw_data.readlines():
+for i, line in enumerate(raw_data.readlines()):
     line = line.rstrip()
 
     if line == "SD card found...":
@@ -46,15 +46,15 @@ for line in raw_data.readlines():
             out_data.writelines(
                 f"{latest_ts},periodic_read,{line_as_list[2]},{line_as_list[4]},{line_as_list[6]},{line_as_list[8]},{line_as_list[10]},{line_as_list[12]},{line_as_list[14]},\n"
             )
-        elif line_as_list[1] == "Float0LevelChange" and list(cb)[-4:] != filter[0:4]:
+        elif line_as_list[1] == "Float0LevelChange" and "sd" not in list(cb):
             out_data.writelines(f"{latest_ts},float0_change,,,,{line_as_list[2]},,,,\n")
-        elif line_as_list[1] == "Float1LevelChange" and list(cb)[-5:] != filter[0:5]:
+        elif line_as_list[1] == "Float1LevelChange" and "sd" not in list(cb):
             out_data.writelines(f"{latest_ts},float1_change,,,,,{line_as_list[2]},,,\n")
-        elif line_as_list[1] == "Float2LevelChange" and list(cb)[-6:] != filter[0:6]:
+        elif line_as_list[1] == "Float2LevelChange" and "sd" not in list(cb):
             out_data.writelines(f"{latest_ts},float2_change,,,,,,{line_as_list[2]},,\n")
-        elif line_as_list[1] == "Float3LevelChange" and list(cb)[-7:] != filter[0:7]:
+        elif line_as_list[1] == "Float3LevelChange" and "sd" not in list(cb):
             out_data.writelines(f"{latest_ts},float3_change,,,,,,,{line_as_list[2]},\n")
-        elif line_as_list[1] == "BucketFirstCountTime" and list(cb)[-8:] != filter[0:8]:
+        elif line_as_list[1] == "BucketFirstCountTime" and "sd" not in list(cb):
             out_data.writelines(f"{latest_ts},bucket_count,,,,,,,,{line_as_list[4]}\n")
         elif line_as_list[1] == "HealthCheck":
             out_data.writelines(f"{latest_ts},health_check,,,,,,,,\n")

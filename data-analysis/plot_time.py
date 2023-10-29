@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 df = pd.read_csv(
-    "sensor_rainfall_merged.csv",
+    "sensor_rainfall_merged2.csv",
     parse_dates=True,
     index_col="ts",
     usecols=[
@@ -16,9 +16,9 @@ df = pd.read_csv(
         # "vbat_raw",
         # "tank_raw",
         # "float0",
-        # "float1",
+        "float1",
         # "float2",
-        # "float3",
+        "float3",
         "bucket_counts",
     ],
 )
