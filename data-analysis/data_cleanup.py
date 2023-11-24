@@ -26,4 +26,6 @@ df = df.astype(
 
 df = df.interpolate()
 
+df["bucket_mm"] = df["bucket_counts"] * 0.38
+
 df.to_csv("out2_clean.csv")
