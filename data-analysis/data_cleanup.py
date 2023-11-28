@@ -24,8 +24,19 @@ df = df.astype(
     }
 )
 
-df = df.interpolate()
 
+# convert bucket counts to mm and resample
 df["bucket_mm"] = df["bucket_counts"] * 0.38
+td = pd.Timedelta(1, "h")
+rs = df["bucket_mm"].resample("1h").sum().rename("bucket_mm_h")
+df = pd.merge(df, rs, how="outer", on="ts")
+
+df.bucket_counts = df.bucket_counts.fillna(0)
+df.bucket_mm = df.bucket_mm.fillna(0)
+df.bucket_mm_h = df.bucket_mm_h.fillna(0)
+
+df = df.interpolate()
+# print(df)
+
 
 df.to_csv("out2_clean.csv")

@@ -21,10 +21,12 @@ df = pd.read_csv(
         "float3",
         "bucket_counts",
         "bucket_mm",
+        "bucket_mm_h",
     ],
 )
 
-df = df.rename(columns={"bucket_counts": "rain (bucket_counts)"})
+# df = df.rename(columns={"bucket_counts": "rain (bucket_counts)"})
+
 
 labels = [
     "temp",
@@ -39,12 +41,12 @@ labels = [
     "test",
 ]
 
-axes = df.plot(subplots=[("temp_2m", "temp")], sharex=True)
+# axes = df.plot(subplots=[("temp_2m", "temp")], sharex=True)
+axes = df[["bucket_mm", "bucket_mm_h", "rain_mm"]].plot(subplots=True, sharex=True)
 # axes = df.plot(subplots=True, sharex=True)
 
-for i, ax in enumerate(axes):
-    ax.set_ylabel(labels[i], rotation="horizontal", x=1000)
-
+# for i, ax in enumerate(axes):
+#     ax.set_ylabel(labels[i], rotation="horizontal", x=1000)
 
 plt.gcf().autofmt_xdate()
 plt.show()
