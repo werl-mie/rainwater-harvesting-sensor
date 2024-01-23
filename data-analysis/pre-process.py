@@ -4,7 +4,9 @@ import pandas as pd
 import time
 from collections import deque
 
-raw_data = open("18 al 26 de septiembre.TXT", "r")
+# raw_data = open("18 al 26 de septiembre.TXT", "r")
+raw_data = open("18 de agosto al 15 de diciembre.TXT", "r")
+# raw_data = open("18 agosto a 15 de diciembre 2023.TXT")
 out_data = open("out2.csv", "w")
 
 cb = deque("filller", maxlen=8)

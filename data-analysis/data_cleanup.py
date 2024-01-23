@@ -47,16 +47,25 @@ df = df.astype(
 
 
 # convert bucket counts to mm and resample
-# df["bucket_mm"] = df["bucket_counts"] * 0.38
-# td = pd.Timedelta(1, "h")
-# rs = df["bucket_mm"].resample("1h").sum().rename("bucket_mm_h")
-# df = pd.merge(df, rs, how="outer", on="ts")
+df["bucket_mm"] = df["bucket_counts"] * 0.38
+td = pd.Timedelta(1, "h")
+rs = df["bucket_mm"].resample("1h").sum().rename("bucket_mm_h")
+df = pd.merge(df, rs, how="outer", on="ts").sort_index()
+
+df.id = df.id.fillna("resample")
+df.bucket_mm_h = df.bucket_mm_h.fillna(0)
+
+# Delete first row
+df = df.drop(df.iloc[0].name)
+
+df = df.interpolate()
 
 # df.bucket_counts = df.bucket_counts.fillna(0)
 # df.bucket_mm = df.bucket_mm.fillna(0)
-# df.bucket_mm_h = df.bucket_mm_h.fillna(0)
 
 # print(df)
+
+df.to_csv("out2_clean_buckets.csv")
 
 
 df["tlq_level"] = df.apply(lambda row: tank_level(row["float3"], row["float2"]), axis=1)

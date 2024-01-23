@@ -1,0 +1,6 @@
+#group,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false
+#datatype,string,long,dateTime:RFC3339,tag,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,measurement
+#default,mean,,,,,,,,,,,,,,,,,,,
+,result,table,_time,id,_value,vbat_raw,tank_raw,float0,float1,float2,float3,bucket_counts,bucket_mm,bucket_mm_h,tlq_level,cistern_level,temp_2m,rain_mm,measurement
+,,0,2023-12-22T18:39:30Z,periodic_read,15.2,956.0,1019.0,1.0,1.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,18.49404761904762,0.0,m,t
+,,0,2023-12-22T18:39:45Z,periodic_read,15.3,953.0,1023.0,1.0,1.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,18.488095238095237,0.0,m,t

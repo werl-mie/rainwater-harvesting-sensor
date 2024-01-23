@@ -20,8 +20,8 @@ df = pd.read_csv(
         "float2",
         "float3",
         "bucket_counts",
-        # "bucket_mm",
-        # "bucket_mm_h",
+        "bucket_mm",
+        "bucket_mm_h",
         "tlq_level",
         "cistern_level",
     ],
@@ -38,31 +38,30 @@ df = df.rename(
 )
 
 
-labels = [
-    "temp",
-    "cistern_level_hi",
-    "cistern_level_lo",
-    "tlq_level_lo",
-    "tlq_level_high",
-    "rain_gauge",
-    "rain_open-meteo",
-    "tank_raw",
-    "vbat",
-    "test",
-]
+# labels = [
+#     "temp",
+#     "cistern_level_hi",
+#     "cistern_level_lo",
+#     "tlq_level_lo",
+#     "tlq_level_high",
+#     "rain_gauge",
+#     "rain_open-meteo",
+#     "tank_raw",
+#     "vbat",
+#     "test",
+# ]
 
-# axes = df.plot(subplots=[("temp_2m", "temp"), ("bucket_mm", "rain_mm")], sharex=True)
-# axes = df[["bucket_mm_h", "rain_mm"]].plot(subplots=True, sharex=True)
-axes = df[
-    [
-        # "cistern_level_top",
-        # "cistern_level_bottom",
-        # "tlq_level_top",
-        # "tlq_level_bottom",
-        "tlq_level",
-        "cistern_level",
-    ]
-].plot(subplots=True, sharex=True, yticks=(0, 1, 2))
+axes = df.plot(subplots=[("temp_2m", "temp"), ("bucket_mm", "rain_mm")], sharex=True)
+# axes = df[
+#     [
+#         # "cistern_level_top",
+#         # "cistern_level_bottom",
+#         # "tlq_level_top",
+#         # "tlq_level_bottom",
+#         "tlq_level",
+#         "cistern_level",
+#     ]
+# ].plot(subplots=True, sharex=True, yticks=(0, 1, 2))
 
 
 # axes = df.plot(subplots=True, sharex=True)
