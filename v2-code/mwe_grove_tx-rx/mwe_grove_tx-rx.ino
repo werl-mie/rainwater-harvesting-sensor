@@ -1,10 +1,12 @@
 # include <Arduino.h>
 # include <U8x8lib.h>
 
-// #define NODE_SLAVE
+#define RX
 
+#ifdef RX
 U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/*reset=*/U8X8_PIN_NONE);
 // U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/*clock=*/ SCL, /*data=*/ SDA, /*reset=*/ U8X8_PIN_NONE);   // OLEDs without Reset of the Display
+#endif
 
 static char recv_buf[512];
 static bool is_exist = false;
@@ -47,6 +49,7 @@ static int at_send_check_response(char *p_ack, int timeout_ms, char*p_cmd, ...)
     return 0;
 }
 
+#ifdef RX
 static int recv_prase(void)
 {
     char ch;
@@ -123,6 +126,7 @@ static int node_recv(uint32_t timeout_ms)
     return 0;
 }
 
+#else
 static int node_send(void)
 {
     static uint16_t count = 0;
@@ -134,11 +138,11 @@ static int node_send(void)
     sprintf(data, "%04X", count);
     sprintf(cmd, "AT+TEST=TXLRPKT,\"5345454544%s\"\r\n", data);
 
-    u8x8.setCursor(0, 3);
-    u8x8.print("                ");
-    u8x8.setCursor(2, 3);
-    u8x8.print("TX: 0x");
-    u8x8.print(data);
+    // u8x8.setCursor(0, 3);
+    // u8x8.print("                ");
+    // u8x8.setCursor(2, 3);
+    // u8x8.print("TX: 0x");
+    // u8x8.print(data);
 
     ret = at_send_check_response("TX DONE", 2000, cmd);
     if (ret == 1)
@@ -153,50 +157,25 @@ static int node_send(void)
     }
     return ret;
 }
-
-static void node_recv_then_send(uint32_t timeout)
-{
-    int ret = 0;
-    ret = node_recv(timeout);
-    delay(100);
-    if (!ret)
-    {
-        Serial.print("\r\n");
-        return;
-    }
-    node_send();
-    Serial.print("\r\n");
-}
-
-static void node_send_then_recv(uint32_t timeout)
-{
-    int ret = 0;
-    ret = node_send();
-    if (!ret)
-    {
-        Serial.print("\r\n");
-        return;
-    }
-    if (!node_recv(timeout))
-    {
-        Serial.print("recv timeout!\r\n");
-    }
-    Serial.print("\r\n");
-}
+#endif
 
 void setup(void)
 {
-
+#ifdef RX
     u8x8.begin();
     u8x8.setFlipMode(1);
     u8x8.setFont(u8x8_font_chroma48medium8_r);
+#endif
 
     Serial.begin(115200);
     // while (!Serial);
 
     Serial1.begin(9600);
     Serial.print("ping pong communication!\r\n");
+
+#ifdef RX
     u8x8.setCursor(0, 0);
+#endif
 
     if (at_send_check_response("+AT: OK", 100, "AT\r\n"))
     {
@@ -204,20 +183,21 @@ void setup(void)
         at_send_check_response("+MODE: TEST", 1000, "AT+MODE=TEST\r\n");
         at_send_check_response("+TEST: RFCFG", 1000, "AT+TEST=RFCFG,866,SF12,125,12,15,14,ON,OFF,OFF\r\n");
         delay(200);
-# ifdef NODE_SLAVE
+
+# ifdef RX
         u8x8.setCursor(5, 0);
-        u8x8.print("slave");
-# else
-        u8x8.setCursor(5, 0);
-        u8x8.print("master");
+        u8x8.print("RX");
 # endif
+
     }
     else
     {
         is_exist = false;
         Serial.print("No E5 module found.\r\n");
+#ifdef RX
         u8x8.setCursor(0, 1);
         u8x8.print("unfound E5 !");
+#endif 
     }
 }
 
@@ -225,11 +205,12 @@ void loop(void)
 {
     if (is_exist)
     {
-# ifdef NODE_SLAVE
-        node_recv_then_send(2000);
+# ifdef RX
+      node_recv(2000);
 # else
-        node_send_then_recv(2000);
-        delay(3000);
+      node_send();
+      delay(3000); 
+        
 # endif
     }
 }
