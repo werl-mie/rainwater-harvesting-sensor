@@ -6,7 +6,7 @@
   #define SERIAL Serial
 #endif
 
-#define COTTON_CANDY_ID "0x5351"
+#define COTTON_CANDY_ID "0x00"
 
 float coulomb = 0, mAh = 0;
 
@@ -28,7 +28,7 @@ void loop(void)
     coulomb = ltc2941.getCoulombsExpend();
     mAh = ltc2941.getmAhExpend();
     
-    SERIAL.print(COTTON_CANDY_ID);
+    SERIAL.print("cc");
     SERIAL.print(",");
     SERIAL.print(coulomb);
     SERIAL.print(",");
