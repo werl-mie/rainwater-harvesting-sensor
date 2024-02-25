@@ -17,7 +17,7 @@ void setup(void)
     SERIAL.begin(115200);
     // while(!SERIAL.available());
     
-    SERIAL.println("LTC2941 Raw Data: id, current_cumulative_C, current_cumulative_mAh");
+    // SERIAL.println("LTC2941 Raw Data: id, current_cumulative_C, current_cumulative_mAh");
     
     ltc2941.initialize();
     ltc2941.setPrescaler(PRESCALAR_M_1);

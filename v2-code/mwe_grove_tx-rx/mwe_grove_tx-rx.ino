@@ -104,7 +104,7 @@ static int recv_prase(void)
                 // data_hex = atoi(data_hex_str);
                 sprintf(msg, "rx,%s\r\n",data_hex_str);
 
-                Serial.println(msg);
+                Serial.print(msg);
                 // Serial.println();
                 // Serial.println(data_hex);
 

@@ -2,9 +2,11 @@ import serial
 import influxdb_client
 from influxdb_client.client.write_api import SYNCHRONOUS
 import time
+
 import tokens
 
 from collections import deque
+import datetime
 
 test_data = [
 "001002F3",
@@ -26,17 +28,17 @@ test_data = [
 ]
 
 #pyserial
-# serial_devices = [None, None, None]
+serial_devices = [None, None]#, None, None]
 
-# serial_devices[0] = serial.Serial()
-# serial_devices[0].baudrate = 115200
-# serial_devices[0].port = '/dev/tty.usbserial-130'
-# serial_devices[0].open()
+serial_devices[0] = serial.Serial()
+serial_devices[0].baudrate = 115200
+serial_devices[0].port = '/dev/tty.usbmodem11401'
+serial_devices[0].open()
 
-# serial_devices[1] = serial.Serial()
-# serial_devices[1].baudrate = 115200
-# serial_devices[1].port = '/dev/tty.usbmodem1301'
-# serial_devices[1].open()
+serial_devices[1] = serial.Serial()
+serial_devices[1].baudrate = 115200
+serial_devices[1].port = '/dev/tty.usbmodem11301'
+serial_devices[1].open()
 
 # serial_devices[2] = serial.Serial()
 # serial_devices[2].baudrate = 115200
@@ -125,19 +127,71 @@ f_out.write("device_id, count\n")
 tx_packet_lists = [None, deque(), deque(), deque()]
 rx_packet_lists = [None, deque(), deque(), deque()]
 
+def check_packets(device_id):
+	missed_packets = deque()
+	received_packets = deque()
+
+	# for i,val in enumerate(tx_packet_lists[device_id]):
+	for i in range(len(tx_packet_lists[device_id])):
+		val = tx_packet_lists[device_id][i]
+		try:
+			rx_packet_lists[device_id].remove(val)
+		except:
+			pass
+		else:
+			for j in range(0,i):
+				missed_packets.append(tx_packet_lists[device_id].popleft())
+			received_packets.append(tx_packet_lists[device_id].popleft())
+
+
+
+	print("Missed packets: ", end='')
+	print(missed_packets)
+	print("Received packets: ", end='')
+	print(received_packets)
+
+tx_packet_lists[1].append(1)
+tx_packet_lists[1].append(2)
+tx_packet_lists[1].append(3)
+tx_packet_lists[1].append(4)
+
+rx_packet_lists[1].append(1)
+rx_packet_lists[1].append(2)
+rx_packet_lists[1].append(4)
+
+check(1)
+
+quit()
 
 while True:
 
 	for ser in serial_devices:
 
 		line = ser.readline().decode("utf-8")
+		line_lst = line.split(",")
+		header = line_lst[0]
 
-		if line != "LTC2941 Raw Data: id, current_cumulative_C, current_cumulative_mAh\r\n" and "0x00" == line[0:4]:
+		if header == "cc":
 			publish_current(line)
 		else:
-			device_id = int(f"0x{data[0:3]}", 0)
-			count = int(f"0x{data[3:]}", 0)
+			device_id = int(f"0x{line_lst[1][0:3]}", 0)
+			count = int(f"0x{line_lst[1][3:]}", 0)
 
-			f_out.write(f"{device_id},{count}\n")
+			if header == "tx":
+				tx_packet_lists[device_id].append(count)
+			elif header == "rx":
+				rx_packet_lists[device_id].append(count)
+
+			# print(f"tx_list[{device_id}]: ",end='')
+			# print(tx_packet_lists[device_id])
+
+			# print(f"rx_list[{device_id}]: ",end='')
+			# print(rx_packet_lists[device_id])
+
+			# print()
+
+
+
+			# f_out.write(f"{datetime.datetime.now()},{device_id},{count}\n")
 
 			
