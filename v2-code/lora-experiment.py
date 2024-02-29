@@ -4,72 +4,24 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 import time
 
 from collections import deque
-import datetime
+from datetime import datetime
 
 # Custom modules
 import tokens
 from DLL import DLL
 
-test_tx_data = [
-"001002F3",
-"002002F3",
-"001002F4",
-"002002F4",
-"001002F5",
-"002002F5",
-"001002F6",
-"001002F7",
-"002002F7",
-"001002F8",
-"001002F9",
-"001002FA",
-"001002FB",
-"001002FC",
-"001002FD",
-"001002FE",
-"001002FF",
-"003002FE",
-"",
-"",
-""
-]
-
-test_rx_data = [
-"001002F3",
-# "002002F3",
-"",
-# "001002F4",
-"",
-# "002002F4",
-"",
-"001002F5",
-"002002F5",
-"001002F6",
-"001002F7",
-"002002F7",
-"001002F8",
-"001002F9",
-"001002FA",
-"001002FB",
-"001002FC",
-"001002FD",
-"003002FE",
-"003002FC",
-"003002FD"
-]
-
 #pyserial
 serial_devices = [None, None]#, None, None]
 
-# serial_devices[0] = serial.Serial()
-# serial_devices[0].baudrate = 115200
-# serial_devices[0].port = '/dev/tty.usbmodem11401'
-# serial_devices[0].open()
+serial_devices[0] = serial.Serial()
+serial_devices[0].baudrate = 115200
+serial_devices[0].port = '/dev/tty.usbmodem11401'
+serial_devices[0].open()
 
-# serial_devices[1] = serial.Serial()
-# serial_devices[1].baudrate = 115200
-# serial_devices[1].port = '/dev/tty.usbmodem11301'
-# serial_devices[1].open()
+serial_devices[1] = serial.Serial()
+serial_devices[1].baudrate = 115200
+serial_devices[1].port = '/dev/tty.usbmodem11301'
+serial_devices[1].open()
 
 # serial_devices[2] = serial.Serial()
 # serial_devices[2].baudrate = 115200
@@ -123,8 +75,9 @@ def publish_rx_success(device_id):
 
 	# write_api.write(bucket=bucket, org=org, record=p)
 
-def publish_rx_missed(device_id, n_packets_missed):
-	print(f"missed {n_packets_missed} packets from device {device_id}")
+def publish_rx_missed(count, device_id):
+	print(f"missed {count} from device {device_id}")
+	fout2.write(f"missed {count} from device {device_id}")
 
 	# p = influxdb_client.Point("packet-rx-missed")\
 	# .tag("experiment_id",EXP_ID)\
@@ -133,17 +86,6 @@ def publish_rx_missed(device_id, n_packets_missed):
 
 	# write_api.write(bucket=bucket, org=org, record=p)
 
-last_rx_count = [None, 0, 0, 0]
-
-f_out = open(f"log_exp_{EXP_ID}.csv", "w")
-f_out.write("device_id, count\n")
-
-tx_packet_lists = [None, DLL(), DLL(), DLL()]
-rx_packet_lists = [None, DLL(), DLL(), DLL()]
-
-missed_packets = [None, deque(), deque(), deque()]	
-received_packets = [None, deque(), deque(), deque()]
-
 def check_packets(device_id):
 
 	curr_tx_packet = tx_packet_lists[device_id].head
@@ -151,8 +93,7 @@ def check_packets(device_id):
 
 	while curr_tx_packet != None and curr_rx_packet != None:
 
-		print(f"id {device_id}: comparing tx val {curr_tx_packet.val} from {tx_packet_lists[device_id]} with rx val {curr_rx_packet.val} from {rx_packet_lists[device_id]}")
-
+		# print(f"id {device_id}: comparing tx val {curr_tx_packet.val} from {tx_packet_lists[device_id]} with rx val {curr_rx_packet.val} from {rx_packet_lists[device_id]}")
 
 		if curr_rx_packet.val == curr_tx_packet.val:
 			# curr_rx_packet was received (delete curr_rx packet)
@@ -174,38 +115,25 @@ def check_packets(device_id):
 
 		curr_rx_packet = rx_packet_lists[device_id].head
 
-		print(f"new tx list: {tx_packet_lists[device_id]}, new rx list:{rx_packet_lists[device_id]}\n")
+		# print(f"new tx list: {tx_packet_lists[device_id]}, new rx list:{rx_packet_lists[device_id]}\n")
 
-	print(f"checked all packets from device {device_id}")
+	# print(f"checked all packets from device {device_id}")
 
-# print(tx_packet_lists[1])
+	for missed_packet in missed_packets[device_id]:
+		publich_rx_missed(missed_packet, device_id)
 
-for tx,rx in zip(test_tx_data, test_rx_data):
+last_rx_count = [None, 0, 0, 0]
 
-	if tx != "":
-		device_id_tx = int(f"0x{tx[0:3]}", 0)
-		count_tx = int(f"0x{tx[3:]}", 0)
-		tx_packet_lists[device_id_tx].append(count_tx)	
+fout = open(f"log_exp_{EXP_ID}.csv", "w")
+fout2 = open(f"missed_packets_exp_{EXP_ID}.csv", "w")
+fout.write("ts, direction, device_id, count\n")
 
-	if rx != "":
-		device_id_rx = int(f"0x{rx[0:3]}", 0)
-		count_rx = int(f"0x{rx[3:]}", 0)	
-		rx_packet_lists[device_id_rx].append(count_rx)
+tx_packet_lists = [None, DLL(), DLL(), DLL()]
+rx_packet_lists = [None, DLL(), DLL(), DLL()]
 
-	check_packets(device_id_rx)
+missed_packets = [None, deque(), deque(), deque()]	
+received_packets = [None, deque(), deque(), deque()]
 
-for i in range(1,4):
-	print(f"Missed packets {i}: ", end='')
-	print(missed_packets[i])
-	print(f"Received packets {i}: ", end='')
-	print(received_packets[i])
-	print()
-	print(f"tx_list {i}: ", end='')
-	print(tx_packet_lists[i])
-	print(f"rx_list {i}: ", end='')
-	print(rx_packet_lists[i])
-
-quit()
 
 while True:
 
@@ -218,13 +146,20 @@ while True:
 		if header == "cc":
 			publish_current(line)
 		else:
+			print(f"received {line.strip()}")
+
 			device_id = int(f"0x{line_lst[1][0:3]}", 0)
 			count = int(f"0x{line_lst[1][3:]}", 0)
 
+			fout.write(f"{datetime.now()},{header},{device_id},{count}\n")
+
 			if header == "tx":
 				tx_packet_lists[device_id].append(count)
+				
 			elif header == "rx":
 				rx_packet_lists[device_id].append(count)
+
+				check_packets(device_id)
 
 			# print(f"tx_list[{device_id}]: ",end='')
 			# print(tx_packet_lists[device_id])
@@ -236,4 +171,35 @@ while True:
 
 			# f_out.write(f"{datetime.datetime.now()},{device_id},{count}\n")
 
-			
+	
+
+# Code for testing check_packets(device_id)
+
+# print(tx_packet_lists[1])
+
+# for tx,rx in zip(test_tx_data, test_rx_data):
+
+# 	if tx != "":
+# 		device_id_tx = int(f"0x{tx[0:3]}", 0)
+# 		count_tx = int(f"0x{tx[3:]}", 0)
+# 		tx_packet_lists[device_id_tx].append(count_tx)	
+
+# 	if rx != "":
+# 		device_id_rx = int(f"0x{rx[0:3]}", 0)
+# 		count_rx = int(f"0x{rx[3:]}", 0)	
+# 		rx_packet_lists[device_id_rx].append(count_rx)
+
+# 	check_packets(device_id_rx)
+
+# for i in range(1,4):
+# 	print(f"Missed packets {i}: ", end='')
+# 	print(missed_packets[i])
+# 	print(f"Received packets {i}: ", end='')
+# 	print(received_packets[i])
+# 	print()
+# 	print(f"tx_list {i}: ", end='')
+# 	print(tx_packet_lists[i])
+# 	print(f"rx_list {i}: ", end='')
+# 	print(rx_packet_lists[i])
+
+# quit()		
