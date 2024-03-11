@@ -1,4 +1,4 @@
 **/.DS_Store
 **/tokens.py
 **/__pycache__
-v2-code/*.csv
+**/logs/*

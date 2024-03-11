@@ -3,8 +3,8 @@
 
 #include "ArduinoLowPower.h"
 
-#define RX
-#define DEVICE_ID 1
+// #define RX
+#define DEVICE_ID 4
 
 #ifdef RX
 U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/*reset=*/U8X8_PIN_NONE);
@@ -12,6 +12,7 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/*reset=*/U8X8_PIN_NONE);
 #endif
 
 static char recv_buf[512];
+// static char recv_buf2[512];
 static bool is_exist = false;
 
 static int send_ret = 0;
@@ -46,7 +47,7 @@ static int at_send_check_response(char *p_ack, int timeout_ms, char*p_cmd, ...)
             ch = Serial1.read();
             recv_buf[index++] = ch;
             // Serial.print((char)ch);
-            delay(2);
+            // delay(2);
         }
 
         if (strstr(recv_buf, p_ack) != NULL)
@@ -64,20 +65,39 @@ static int at_send_check_response(char *p_ack, int timeout_ms, char*p_cmd, ...)
 #ifdef RX
 static int recv_prase(void)
 {
+
+    while (Serial1.available() == 0){}
+
+    char *p_start = NULL;
+    char *p_start2 = NULL;
+
     char ch;
     int index = 0;
     memset(recv_buf, 0, sizeof(recv_buf));
-    while (Serial1.available() > 0)
+    do
     {
         ch = Serial1.read();
         recv_buf[index++] = ch;
         // Serial.print((char)ch);
         delay(2);
-    }
+        p_start = strstr(recv_buf, "+TEST: RX \"");
+    } while (p_start == NULL);
+
+    int i_packet = index;
+
+    do
+    {
+        ch = Serial1.read();
+        recv_buf[index++] = ch;
+        // Serial.print((char)ch);
+        delay(2);
+        p_start2 = strstr(recv_buf + i_packet, "\"");
+    } while (p_start2 == NULL);
+
 
     if (index)
     {
-        char *p_start = NULL;
+        // char *p_start = NULL;
         char data[32] = {
             0,
         };
@@ -92,7 +112,7 @@ static int recv_prase(void)
         char data_hex_str[10] = {0,};
         uint32_t data_hex = 0;
 
-        char msg[14];
+        char msg[32] = {0,};
 
         p_start = strstr(recv_buf, "+TEST: RX \"");
         if (p_start)
@@ -105,6 +125,8 @@ static int recv_prase(void)
                 sprintf(msg, "rx,%s\r\n",data_hex_str);
 
                 Serial.print(msg);
+
+
                 // Serial.println();
                 // Serial.println(data_hex);
 
@@ -175,14 +197,17 @@ static int recv_prase(void)
 static int node_recv(uint32_t timeout_ms)
 {
     at_send_check_response("+TEST: RXLRPKT", 1000, "AT+TEST=RXLRPKT\r\n");
-    int startMillis = millis();
-    do
-    {
-        if (recv_prase())
-        {
-            return 1;
-        }
-    } while (millis() - startMillis < timeout_ms);
+
+    recv_prase();
+
+    // int startMillis = millis();
+    // do
+    // {
+    //     if (recv_prase())
+    //     {
+    //         return 1;
+    //     }
+    // } while (millis() - startMillis < timeout_ms);
     return 0;
 }
 
@@ -276,8 +301,9 @@ void loop(void)
       // Serial.print("TEST");
       node_send();
       // Serial.println(send_ret);
-      // LowPower.sleep(600000);
-        
+      LowPower.sleep(600000); // 10 minutes
+      // LowPower.sleep(3000);
+      // delay(5000);
 # endif
     }
 }

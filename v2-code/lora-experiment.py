@@ -10,28 +10,32 @@ from datetime import datetime
 import tokens
 from DLL import DLL
 
+
+
 #pyserial
-serial_devices = [None, None]#, None, None]
+serial_devices = [None, None, None, None]
 
 serial_devices[0] = serial.Serial()
 serial_devices[0].baudrate = 115200
-serial_devices[0].port = '/dev/tty.usbmodem11401'
+serial_devices[0].port = '/dev/ttyACM0'
 serial_devices[0].open()
 
 serial_devices[1] = serial.Serial()
 serial_devices[1].baudrate = 115200
-serial_devices[1].port = '/dev/tty.usbmodem11301'
+serial_devices[1].port = '/dev/ttyACM0'
 serial_devices[1].open()
 
-# serial_devices[2] = serial.Serial()
-# serial_devices[2].baudrate = 115200
-# serial_devices[2].port = '/dev/tty.usbmodem1301'
-# serial_devices[2].open()
+serial_devices[2] = serial.Serial()
+serial_devices[2].baudrate = 115200
+serial_devices[2].port = '/dev/ttyACM0'
+serial_devices[2].open()
 
-# serial_devices[3] = serial.Serial()
-# serial_devices[3].baudrate = 115200
-# serial_devices[3].port = '/dev/tty.usbmodem1301'
-# serial_devices[3].open()
+serial_devices[3] = serial.Serial()
+serial_devices[3].baudrate = 115200
+serial_devices[3].port = '/dev/ttyACM0'
+serial_devices[3].open()
+
+
 
 #influxdb_client
 org = "werl"
@@ -93,7 +97,7 @@ def check_packets(device_id):
 
 	while curr_tx_packet != None and curr_rx_packet != None:
 
-		# print(f"id {device_id}: comparing tx val {curr_tx_packet.val} from {tx_packet_lists[device_id]} with rx val {curr_rx_packet.val} from {rx_packet_lists[device_id]}")
+		print(f"id {device_id}: comparing tx val {curr_tx_packet.val} from {tx_packet_lists[device_id]} with rx val {curr_rx_packet.val} from {rx_packet_lists[device_id]}")
 
 		if curr_rx_packet.val == curr_tx_packet.val:
 			# curr_rx_packet was received (delete curr_rx packet)
@@ -120,7 +124,9 @@ def check_packets(device_id):
 	# print(f"checked all packets from device {device_id}")
 
 	for missed_packet in missed_packets[device_id]:
-		publich_rx_missed(missed_packet, device_id)
+		publish_rx_missed(missed_packet, device_id)
+
+	missed_packets[device_id].clear()
 
 last_rx_count = [None, 0, 0, 0]
 
