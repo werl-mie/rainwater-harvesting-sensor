@@ -301,9 +301,16 @@ void loop(void)
       // Serial.print("TEST");
       node_send();
       // Serial.println(send_ret);
+      at_send_check_response("+LOWPOWER: SLEEP", 1000, "AT+LOWPOWER\r\n");
       LowPower.sleep(600000); // 10 minutes
-      // LowPower.sleep(3000);
-      // delay(5000);
+      
+      // wake up LoRa modem
+      Serial1.printf("A"); 
+      delay(2);
+        // validate that LoRa modem is awake
+        // if(at_send_check_response("+AT: OK", 100, "AT\r\n")){
+        //   Serial.println("LoRa radio AWAKE");
+        // }
 # endif
     }
 }
