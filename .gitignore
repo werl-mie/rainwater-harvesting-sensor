@@ -2,3 +2,6 @@
 **/tokens.py
 **/__pycache__
 **/*.csv
+**/*.csr
+**/*.crt
+**/arduino_secrets.h
