@@ -3,24 +3,7 @@
 #include <MKRNB.h>
 #include <MQTT.h>
 
-
-// Define parameters for parsing data stream
-const uint8_t LEN_RXBUF = 32;
-
-const uint8_t LEN_ADDR_GW = 4;
-const uint8_t OFFSET_ADDR_GW = 7;
-
-const uint8_t LEN_ADDR_NODE = 4;
-const uint8_t OFFSET_ADDR_NODE = 14;
-
-const uint8_t LEN_VAL_POT = 4;
-const uint8_t OFFSET_VAL_POT = OFFSET_ADDR_NODE + LEN_ADDR_NODE;
-
-const uint8_t LEN_VAL_LVL1 = 2;
-const uint8_t OFFSET_VAL_LVL1 = OFFSET_VAL_POT + LEN_VAL_POT;
-
-const uint8_t LEN_VAL_LVL2 = 2;
-const uint8_t OFFSET_VAL_LVL2 = OFFSET_VAL_LVL1 + LEN_VAL_LVL1;
+#include "test.h"
 
 char rxBuf[LEN_RXBUF];
 char* ptr; // dummy pointer for strtol
@@ -50,12 +33,8 @@ bool extract_str(char* str_out, uint8_t len, uint8_t offset, const char* buff, u
       }
     }
 
-    // Serial.print(str_out);
-    // Serial.print(" ");
-
     return true;
 }
-
 
 void setup() {
   // put your setup code here, to run once:
@@ -63,8 +42,6 @@ void setup() {
   Serial1.begin(9600);
 
   delay(500);
-
-  
 
   //Set a timeout for the UART receive
   // Serial1.setTimeout(UART_RECEIVE_TIMEOUT_MS);
@@ -75,7 +52,7 @@ void setup() {
     Serial.print("Hello World\r\n");
   }
 
-  //TODO: Setup the interrupts
+  // TODO: Setup the interrupts
 }
 
 void loop() {
@@ -90,7 +67,6 @@ void loop() {
     // Simple pass-through validation
     // int byte = Serial1.read();
     // Serial.write(byte);
-    
 
     Serial1.readBytesUntil(10,rxBuf, LEN_RXBUF);
 

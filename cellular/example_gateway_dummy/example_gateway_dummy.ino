@@ -13,6 +13,6 @@ void setup() {
 
 void loop() {
   Serial1.println("[DATA] 67A3 6 E84400B00102");
-  delay(1000);
+  delay(10000);
 
 }
