@@ -18,10 +18,13 @@
   This example code is in the public domain.
 */
 
+#define DEBUG //Only if connected to computer
+
 #include <ArduinoBearSSL.h>
 #include <ArduinoECCX08.h>
 #include <ArduinoMqttClient.h>
 #include <MKRNB.h>
+#include <Adafruit_SleepyDog.h>
 
 #include "arduino_secrets.h"
 #include "params_parsing.h"
@@ -74,15 +77,21 @@ bool extract_str(char* str_out, uint8_t len, uint8_t offset, const char* buff, u
 }
 
 void setup() {
+
+#ifdef DEBUG
   Serial.begin(115200);
+#endif
   Serial1.begin(9600);
 
+#ifdef DEBUG
   while (!Serial);
+#endif
 
   if (!ECCX08.begin()) {
+#ifdef DEBUG
     Serial.println("No ECCX08 present!");
-    while (1)
-      ;
+#endif
+    while (1);
   }
 
   // Set a callback to get the current time
@@ -147,12 +156,7 @@ void loop() {
     }
   }
 
-  // publish a message roughly every 5 seconds.
-  // if (millis() - lastMillis > 5000) {
-  //   lastMillis = millis();
-
-  //   publishMessage();
-  // }
+  Watchdog.reset();
 }
 
 unsigned long getTime() {
@@ -161,32 +165,50 @@ unsigned long getTime() {
 }
 
 void connectNB() {
+#ifdef DEBUG
   Serial.println("Attempting to connect to the cellular network");
+#endif
 
   while ((nbAccess.begin(pinnumber) != NB_READY) || (gprs.attachGPRS() != GPRS_READY)) {
     // failed, retry
+#ifdef DEBUG
     Serial.print(".");
+#endif
     delay(1000);
   }
-
+#ifdef DEBUG
   Serial.println("You're connected to the cellular network");
   Serial.println();
+#endif
 }
 
 void connectMQTT() {
+#ifdef DEBUG
   Serial.print("Attempting to MQTT broker: ");
   Serial.print(broker);
   Serial.println(" ");
+#endif
+
+  Watchdog.enable(16000);
 
   while (!mqttClient.connect(broker, 8883)) {
     // failed, retry
+#ifdef DEBUG
     Serial.print(".");
+#endif
+    Watchdog.reset();
     delay(5000);
+    Watchdog.reset();
   }
+
+  Watchdog.disable();
+
+#ifdef DEBUG
   Serial.println();
 
   Serial.println("You're connected to the MQTT broker");
   Serial.println();
+#endif
 
   // subscribe to a topic
   mqttClient.subscribe("arduino/incoming");
@@ -194,8 +216,10 @@ void connectMQTT() {
 
 void publishMessage() {
   unsigned long ts = getTime();
+#ifdef DEBUG
   Serial.print("Publishing message at time ");
   Serial.println(ts);
+#endif
 
   // send message, the Print interface can be used to set the message contents
   mqttClient.beginMessage("arduino/outgoing");
@@ -230,17 +254,23 @@ void publishMessage() {
 
 void onMessageReceived(int messageSize) {
   // we received a message, print out the topic and contents
+#ifdef DEBUG
   Serial.print("Received a message with topic '");
   Serial.print(mqttClient.messageTopic());
   Serial.print("', length ");
   Serial.print(messageSize);
   Serial.println(" bytes:");
+#endif
 
   // use the Stream interface to print the contents
   while (mqttClient.available()) {
+#ifdef DEBUG
     Serial.print((char)mqttClient.read());
+#endif
   }
+#ifdef DEBUG
   Serial.println();
 
   Serial.println();
+#endif
 }
