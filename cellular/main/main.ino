@@ -48,10 +48,10 @@ unsigned long lastMillis = 0;
 char rxBuf[LEN_RXBUF];
 char* ptr; // dummy pointer for strtol
 
-char addr_gw_str[LEN_ADDR_GW+1] = "";
-long addr_gw = 0;
+char addr_parent_str[LEN_ADDR_PARENT+1] = "";
+long addr_parent = 0;
 
-char addr_node_str[LEN_ADDR_GW+1] = "";
+char addr_node_str[LEN_ADDR_NODE+1] = "";
 long addr_node = 0;
 
 char val_pot_str[LEN_VAL_POT+1] = "";
@@ -138,12 +138,12 @@ void loop() {
 
     Serial1.readBytesUntil(10,rxBuf, LEN_RXBUF);
 
-    // Serial.write(rxBuf);
-    // Serial.write(10);
+    Serial.write(rxBuf);
+    Serial.write(10);
 
     if(strstr(rxBuf,"[DATA]")){
-      extract_str(addr_gw_str, 4, OFFSET_ADDR_GW, rxBuf, LEN_RXBUF);
-      addr_gw = strtol(addr_gw_str,&ptr,16);
+      extract_str(addr_parent_str, 4, OFFSET_ADDR_PARENT, rxBuf, LEN_RXBUF);
+      addr_parent = strtol(addr_parent_str,&ptr,16);
 
       extract_str(addr_node_str, 4, OFFSET_ADDR_NODE, rxBuf, LEN_RXBUF);
       addr_node = strtol(addr_node_str,&ptr,16);
@@ -233,7 +233,7 @@ void publishMessage() {
   mqttClient.print(",");
 
   mqttClient.print("\"id_parent\": ");
-  mqttClient.print(addr_gw);
+  mqttClient.print(addr_parent);
   mqttClient.print(",");
 
   mqttClient.print("\"id\": ");
