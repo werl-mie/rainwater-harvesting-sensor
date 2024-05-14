@@ -78,6 +78,8 @@ bool extract_str(char* str_out, uint8_t len, uint8_t offset, const char* buff, u
 
 void setup() {
 
+  Watchdog.enable(16000);
+
 #ifdef DEBUG
   Serial.begin(115200);
 #endif
@@ -116,7 +118,9 @@ void setup() {
 
 void loop() {
   if (nbAccess.status() != NB_READY || gprs.status() != GPRS_READY) {
+    Watchdog.disable();
     connectNB();
+    Watchdog.enable(16000);
   }
 
   if (!mqttClient.connected()) {
@@ -189,7 +193,7 @@ void connectMQTT() {
   Serial.println(" ");
 #endif
 
-  Watchdog.enable(16000);
+  // Watchdog.enable(16000);
 
   while (!mqttClient.connect(broker, 8883)) {
     // failed, retry
