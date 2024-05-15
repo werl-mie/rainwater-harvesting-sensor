@@ -164,7 +164,7 @@ static void node_recv_then_send(uint32_t timeout)
         Serial.print("\r\n");
         return;
     }
-    node_send();
+    // node_send();
     Serial.print("\r\n");
 }
 

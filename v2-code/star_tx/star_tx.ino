@@ -1,7 +1,7 @@
 # include <Arduino.h>
 # include <U8x8lib.h>
 
-// #define NODE_SLAVE
+#define NODE_TX
 
 U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/*reset=*/U8X8_PIN_NONE);
 // U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/*clock=*/ SCL, /*data=*/ SDA, /*reset=*/ U8X8_PIN_NONE);   // OLEDs without Reset of the Display
@@ -204,7 +204,7 @@ void setup(void)
         at_send_check_response("+MODE: TEST", 1000, "AT+MODE=TEST\r\n");
         at_send_check_response("+TEST: RFCFG", 1000, "AT+TEST=RFCFG,866,SF12,125,12,15,14,ON,OFF,OFF\r\n");
         delay(200);
-# ifdef NODE_SLAVE
+# ifdef NODE_TX
         u8x8.setCursor(5, 0);
         u8x8.print("slave");
 # else
@@ -225,13 +225,14 @@ void loop(void)
 {
     if (is_exist)
     {
-# ifdef NODE_SLAVE
-        node_send_then_recv(2000);
+# ifdef NODE_TX
+        node_send_then_recv(0);
         // node_recv_then_send(2000);
+        delay(3000);
 # else
         node_recv_then_send(2000);
         // node_send_then_recv(2000);
-        delay(3000);
+        
 # endif
     }
 }

@@ -125,7 +125,9 @@ void loop() {
 
   if (!mqttClient.connected()) {
     // MQTT client is disconnected, connect
+    Watchdog.disable();
     connectMQTT();
+    Watchdog.enable(16000);
   }
 
   // poll for new MQTT messages and send keep alives
@@ -195,17 +197,18 @@ void connectMQTT() {
 
   // Watchdog.enable(16000);
 
+
   while (!mqttClient.connect(broker, 8883)) {
     // failed, retry
 #ifdef DEBUG
     Serial.print(".");
 #endif
-    Watchdog.reset();
+    // Watchdog.reset();
     delay(5000);
-    Watchdog.reset();
+    // Watchdog.reset();
   }
 
-  Watchdog.disable();
+  // Watchdog.disable();
 
 #ifdef DEBUG
   Serial.println();
