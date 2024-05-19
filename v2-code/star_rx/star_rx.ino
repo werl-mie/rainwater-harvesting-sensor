@@ -75,12 +75,20 @@ static int recv_prase(void)
             p_start = strstr(recv_buf, "5345454544");
             if (p_start && (1 == sscanf(p_start, "5345454544%s", data)))
             {
-                data[4] = 0;
-                u8x8.setCursor(0, 4);
-                u8x8.print("               ");
-                u8x8.setCursor(2, 4);
-                u8x8.print("RX: 0x");
-                u8x8.print(data);
+                switch(data[0]){
+                  case "0":
+                    data[9] = 0;
+                    break;
+                  case "1":
+                    data[5] = 0;
+                    break;
+                  case "2":
+                    data[5] = 0;
+                    break;
+                  default:
+                    sprintf(data,"[ERROR] INVALID_ID\0")
+                }
+                
                 Serial.print(data);
                 Serial.print("\r\n");
             }
