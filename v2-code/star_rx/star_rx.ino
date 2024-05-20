@@ -1,6 +1,8 @@
 # include <Arduino.h>
 # include <U8x8lib.h>
+#include "ArduinoLowPower.h"
 
+#define RX
 // #define NODE_SLAVE
 
 U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/*reset=*/U8X8_PIN_NONE);
@@ -18,7 +20,7 @@ static int at_send_check_response(char *p_ack, int timeout_ms, char*p_cmd, ...)
     memset(recv_buf, 0, sizeof(recv_buf));
     va_start(args, p_cmd);
     Serial1.printf(p_cmd, args);
-    Serial.printf(p_cmd, args);
+    // Serial.printf(p_cmd, args);
     va_end(args);
     delay(200);
     startMillis = millis();
@@ -34,8 +36,8 @@ static int at_send_check_response(char *p_ack, int timeout_ms, char*p_cmd, ...)
         {
             ch = Serial1.read();
             recv_buf[index++] = ch;
-            Serial.print((char)ch);
-            delay(2);
+            // Serial.print((char)ch);
+            // delay(2);
         }
 
         if (strstr(recv_buf, p_ack) != NULL)
@@ -75,19 +77,19 @@ static int recv_prase(void)
             p_start = strstr(recv_buf, "5345454544");
             if (p_start && (1 == sscanf(p_start, "5345454544%s", data)))
             {
-                switch(data[0]){
-                  case "0":
-                    data[9] = 0;
-                    break;
-                  case "1":
-                    data[5] = 0;
-                    break;
-                  case "2":
-                    data[5] = 0;
-                    break;
-                  default:
-                    sprintf(data,"[ERROR] INVALID_ID\0")
-                }
+                // switch(data[0]){
+                //   case 48:
+                //     data[9] = 0;
+                //     break;
+                //   case 49:
+                //     data[5] = 0;
+                //     break;
+                //   case 50:
+                //     data[5] = 0;
+                //     break;
+                //   default:
+                //     sprintf(data,"[ERROR] INVALID_ID\0");
+                // }
                 
                 Serial.print(data);
                 Serial.print("\r\n");
@@ -231,15 +233,37 @@ void setup(void)
 
 void loop(void)
 {
-    if (is_exist)
+//     if (is_exist)
+//     {
+// # ifdef NODE_SLAVE
+//         node_send_then_recv(2000);
+//         // node_recv_then_send(2000);
+// # else
+//         node_recv_then_send(2000);
+//         // node_send_then_recv(2000);
+//         delay(3000);
+// # endif
+//     }
+   if (is_exist)
     {
-# ifdef NODE_SLAVE
-        node_send_then_recv(2000);
-        // node_recv_then_send(2000);
+# ifdef RX
+      node_recv(2000);
 # else
-        node_recv_then_send(2000);
-        // node_send_then_recv(2000);
-        delay(3000);
+      // Serial.print("TEST");
+      node_send();
+      // Serial.println(send_ret);
+      at_send_check_response("+LOWPOWER: SLEEP", 1000, "AT+LOWPOWER\r\n");
+      // LowPower.sleep(600000); // 10 minutes
+      LowPower.sleep(5000);
+
+      // wake up LoRa modem
+      Serial1.printf("A"); 
+      delay(2);
+        // validate that LoRa modem is awake
+        // if(at_send_check_response("+AT: OK", 100, "AT\r\n")){
+        //   Serial.println("LoRa radio AWAKE");
+        // }
 # endif
     }
+
 }

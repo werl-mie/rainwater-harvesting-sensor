@@ -3,7 +3,7 @@
 
 #include "ArduinoLowPower.h"
 
-// #define RX
+#define RX
 #define DEVICE_ID 4
 
 #ifdef RX
@@ -302,7 +302,9 @@ void loop(void)
       node_send();
       // Serial.println(send_ret);
       at_send_check_response("+LOWPOWER: SLEEP", 1000, "AT+LOWPOWER\r\n");
-      LowPower.sleep(600000); // 10 minutes
+      // LowPower.sleep(600000); // 10 minutes
+      LowPower.sleep(5000);
+      // delay(50);
       
       // wake up LoRa modem
       Serial1.printf("A"); 
