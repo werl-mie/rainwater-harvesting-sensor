@@ -18,14 +18,13 @@
 #define MINUTE 0
 #define SECOND 0
 
-
 #define SITE_ID 0
 // #define RX
 
 // MUTEX
 // #define TYPE_CISTERN
-#define TYPE_TLALOQUE
-// #define TYPE_RAINGAUGE
+// #define TYPE_TLALOQUE
+#define TYPE_RAINGAUGE
 
 #define PIN_CHIP_SELECT 4
 
@@ -176,6 +175,7 @@ static int recv_prase(void)
 
                 Serial.print(msg);
                 Serial.print("\r\n");
+                log_to_sd(get_timestamp_str() + ", " + String(msg) + "\r\n");
             }
 
             p_start = strstr(recv_buf, "RSSI:");
@@ -195,6 +195,7 @@ static int recv_prase(void)
             sprintf(params, "[PARAMS] rssi: %d snr: %d len: %d", rssi, snr,len);
             Serial.print(params);
             Serial.print("\r\n");
+            log_to_sd(get_timestamp_str() + ", " + String(params) + "\r\n");
 
             return 1;
         }
@@ -275,10 +276,14 @@ static int node_send(void)
 void setup(void)
 {
 
-  Watchdog.enable(16000);
+  // Watchdog.enable(16000);
 
     Serial.begin(115200);
+    // delay(500);
     // while (!Serial);
+
+    Serial.print("Starting serial");
+
 
     Serial1.begin(9600);
     Serial.print("ping pong communication!\r\n");
@@ -290,6 +295,7 @@ void setup(void)
         at_send_check_response("+MODE: TEST", 1000, "AT+MODE=TEST\r\n");
         at_send_check_response("+TEST: RFCFG", 1000, "AT+TEST=RFCFG,866,SF12,125,12,15,14,ON,OFF,OFF\r\n");
         delay(200);
+        Serial.println("AT OK");
 
     }
     else
@@ -298,8 +304,10 @@ void setup(void)
         Serial.print("No E5 module found.\r\n");
     }
 
+    Serial.println("HELLO");
+
     if (!SD.begin(PIN_CHIP_SELECT)) {
-      // Serial.println("Card failed, or not present");
+      Serial.println("Card failed, or not present");
       while (1);
     }
 
@@ -334,7 +342,6 @@ void loop(void)
 # ifdef RX
       node_recv(2000);
 # else
-      // Serial.print("TEST");
       node_send();
       // Serial.println(send_ret);
       at_send_check_response("+LOWPOWER: SLEEP", 1000, "AT+LOWPOWER\r\n");
@@ -343,19 +350,15 @@ void loop(void)
       Watchdog.disable();
       #ifdef TYPE_CISTERN
           LowPower.sleep(900000); // 15 minutes
-          // delay(5000);
       #endif
       #ifdef TYPE_TLALOQUE
           LowPower.sleep(915000); // 15 minutes + 15 seconds
       #endif   
       #ifdef TYPE_RAINGAUGE
-          LowPower.sleep(885000); // 15 minutes - 15 seconds
+          // LowPower.sleep(885000); // 15 minutes - 15 seconds
+          delay(3000);
       #endif
-      Watchdog.enable();
-
-      
-      // LowPower.sleep(5000);
-      // delay(5000);
+      Watchdog.enable(16000);
       
       // wake up LoRa modem
       Serial1.printf("A"); 
