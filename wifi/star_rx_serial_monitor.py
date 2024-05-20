@@ -46,7 +46,7 @@ SERIAL_BAUD_RATE = 9600
 ROOT_LOGGING_DIR = "~/logs"
 
 # SERIAL_PROGRAMMER_STRING = 'FT232R'
-SERIAL_PROGRAMMER_STRING = 'Seeed'
+SERIAL_PROGRAMMER_STRING = 'Feather'
         
 if __name__ == "__main__":
   
@@ -113,26 +113,31 @@ if __name__ == "__main__":
       try:
         serial_input=ser.readline().decode('utf-8')
 
-        print(serial_input)
+        # print(serial_input)
 
         if serial_input:
 
-          logging.info("Creating influxdb client")
-          client = influxdb_client.InfluxDBClient(
-              url=url,
-              token=token,
-              org=org,
-              verify_ssl=False,
-              timeout=influx_timeout
-          )
-
-          logging.info("Creating influxdb write_api client")
-          write_api = client.write_api(write_options=SYNCHRONOUS)
+          
           
           log_entry=str(serial_input)
           logging.debug(log_entry)
           
           if "[DATA]" in serial_input:
+
+            logging.info("Creating influxdb client")
+            client = influxdb_client.InfluxDBClient(
+                url=url,
+                token=token,
+                org=org,
+                verify_ssl=False,
+                timeout=influx_timeout
+            )
+
+            logging.info("Creating influxdb write_api client")
+            write_api = client.write_api(write_options=SYNCHRONOUS)
+
+
+
             elements = serial_input.split()
             data = elements[1]
             packet_id = int(data[:2])

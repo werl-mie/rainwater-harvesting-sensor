@@ -22,9 +22,9 @@
 // #define RX
 
 // MUTEX
-// #define TYPE_CISTERN
+#define TYPE_CISTERN
 // #define TYPE_TLALOQUE
-#define TYPE_RAINGAUGE
+// #define TYPE_RAINGAUGE
 
 #define PIN_CHIP_SELECT 4
 
@@ -343,7 +343,7 @@ void loop(void)
       node_recv(2000);
 # else
       node_send();
-      // Serial.println(send_ret);
+
       at_send_check_response("+LOWPOWER: SLEEP", 1000, "AT+LOWPOWER\r\n");
 
 
@@ -355,8 +355,7 @@ void loop(void)
           LowPower.sleep(915000); // 15 minutes + 15 seconds
       #endif   
       #ifdef TYPE_RAINGAUGE
-          // LowPower.sleep(885000); // 15 minutes - 15 seconds
-          delay(3000);
+          LowPower.sleep(885000); // 15 minutes - 15 seconds
       #endif
       Watchdog.enable(16000);
       
@@ -398,7 +397,7 @@ void log_to_sd(String str){
       dataFile.close();
 
       // print to the serial port too:
-      Serial.print(str);
+      // Serial.print(str);
     }
 
     // else {
