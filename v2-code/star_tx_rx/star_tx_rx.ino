@@ -3,7 +3,6 @@
 // Author: Eren Rudy
 
 # include <Arduino.h>
-# include <U8x8lib.h>
 
 #include "ArduinoLowPower.h"
 #include <RTCZero.h>
@@ -12,6 +11,14 @@
 #include <SD.h>
 #include <Adafruit_SleepyDog.h>
 
+#define YEAR 24
+#define MONTH 1
+#define DAY 1
+#define HOUR 0
+#define MINUTE 0
+#define SECOND 0
+
+
 #define SITE_ID 0
 // #define RX
 
@@ -19,6 +26,8 @@
 // #define TYPE_CISTERN
 #define TYPE_TLALOQUE
 // #define TYPE_RAINGAUGE
+
+#define PIN_CHIP_SELECT 4
 
 #define POT_SENSOR_PWR 7 //WHITE
 #define POT_SENSOR_AOUT A0 //BLUE
@@ -30,12 +39,14 @@
 
 volatile uint16_t rain_gauge_count = 0;
 
+// Logging 
+RTCZero rtc_samd;
+File dataFile;
+DateTime now;
+char sprintf_buffer[19]; //timestamp string is exactly 19 characters long
+String buffer_str = "";
+// Logging 
 
-
-#ifdef RX
-U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/*reset=*/U8X8_PIN_NONE);
-// U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/*clock=*/ SCL, /*data=*/ SDA, /*reset=*/ U8X8_PIN_NONE);   // OLEDs without Reset of the Display
-#endif
 
 static char recv_buf[512];
 // static char recv_buf2[512];
@@ -170,30 +181,20 @@ static int recv_prase(void)
             p_start = strstr(recv_buf, "RSSI:");
             if (p_start && (1 == sscanf(p_start, "RSSI: %d,", &rssi)))
             {
-                u8x8.setCursor(0, 6);
-                u8x8.print("                ");
-                u8x8.setCursor(2, 6);
-                u8x8.print("rssi:");
-                u8x8.print(rssi);
             }
             p_start = strstr(recv_buf, "SNR:");
             if (p_start && (1 == sscanf(p_start, "SNR: %d", &snr)))
             {
-                u8x8.setCursor(0, 7);
-                u8x8.print("                ");
-                u8x8.setCursor(2, 7);
-                u8x8.print("snr :");
-                u8x8.print(snr);
+
             }
             p_start = strstr(recv_buf, "LEN:");
             if (p_start && (1 == sscanf(p_start, "LEN: %d", &len)))
             {
-                u8x8.setCursor(0, 5);
-                u8x8.print("                ");
-                u8x8.setCursor(2, 5);
-                u8x8.print("len :");
-                u8x8.print(len);
             }
+
+            sprintf(params, "[PARAMS] rssi: %d snr: %d len: %d", rssi, snr,len);
+            Serial.print(params);
+            Serial.print("\r\n");
 
             return 1;
         }
@@ -259,10 +260,13 @@ static int node_send(void)
     { 
         Serial.print(data);
         Serial.print(" sent successfully!\r\n");
+        log_to_sd(get_timestamp_str() + "," + String(data) + "\r\n");
     }
     else
     {
         Serial.print("Send failed!\r\n");
+        log_to_sd(get_timestamp_str() + " Send failed!\r\n");
+
     }
     return ret;
 }
@@ -273,21 +277,12 @@ void setup(void)
 
   Watchdog.enable(16000);
 
-#ifdef RX
-    u8x8.begin();
-    u8x8.setFlipMode(1);
-    u8x8.setFont(u8x8_font_chroma48medium8_r);
-#endif
-
     Serial.begin(115200);
     // while (!Serial);
 
     Serial1.begin(9600);
     Serial.print("ping pong communication!\r\n");
 
-#ifdef RX
-    u8x8.setCursor(0, 0);
-#endif
 
     if (at_send_check_response("+AT: OK", 100, "AT\r\n"))
     {
@@ -296,32 +291,39 @@ void setup(void)
         at_send_check_response("+TEST: RFCFG", 1000, "AT+TEST=RFCFG,866,SF12,125,12,15,14,ON,OFF,OFF\r\n");
         delay(200);
 
-# ifdef RX
-        u8x8.setCursor(5, 0);
-        u8x8.print("RX");
-# endif
-
     }
     else
     {
         is_exist = false;
         Serial.print("No E5 module found.\r\n");
-#ifdef RX
-        u8x8.setCursor(0, 1);
-        u8x8.print("unfound E5 !");
-#endif 
     }
+
+    if (!SD.begin(PIN_CHIP_SELECT)) {
+      // Serial.println("Card failed, or not present");
+      while (1);
+    }
+
+    #ifdef TYPE_CISTERN
+      log_to_sd("CISTERN, SITE_ID: " + String(SITE_ID) + "\n\r");
+    #endif
+    #ifdef TYPE_TLALOQUE
+      log_to_sd("TLALOQUE, SITE_ID: " + String(SITE_ID) + "\n\r");
+    #endif
+    #ifdef TYPE_RAINGAUGE
+      log_to_sd("RAINGAUGE, SITE_ID: " + String(SITE_ID) + "\n\r");
+    #endif
+
+    rtc_samd.begin();
+    rtc_samd.setDate(DAY, MONTH, YEAR);
+    rtc_samd.setTime(HOUR, MINUTE, SECOND);
 
     pinMode(PIN_LVL_HIGH, INPUT_PULLUP);
     pinMode(PIN_LVL_LOW, INPUT_PULLUP);
-
     LowPower.attachInterruptWakeup(PIN_LVL_HIGH, isr_dummy, CHANGE);
     LowPower.attachInterruptWakeup(PIN_LVL_LOW, isr_dummy, CHANGE);
 
-    // #ifdef TYPE_RAINGAUGE
-      pinMode(PIN_RAIN_GAUGE, INPUT_PULLUP);
-      LowPower.attachInterruptWakeup(PIN_RAIN_GAUGE, isr_bucket, RISING);
-    // #endif
+    pinMode(PIN_RAIN_GAUGE, INPUT_PULLUP);
+    LowPower.attachInterruptWakeup(PIN_RAIN_GAUGE, isr_bucket, RISING);
     
 }
 
@@ -372,4 +374,32 @@ void isr_bucket(){
 }
 
 void isr_dummy(){}
+
+String get_timestamp_str(){
+  sprintf(sprintf_buffer, "%d-%.2d-%.2d %.2d:%.2d:%.2d", rtc_samd.getYear(), rtc_samd.getMonth(), rtc_samd.getDay(), rtc_samd.getHours(), rtc_samd.getMinutes(), rtc_samd.getSeconds());
+  buffer_str = sprintf_buffer;
+  return buffer_str;
+}
+
+void log_to_sd(String str){
+
+    dataFile = SD.open("datalog.txt", FILE_WRITE);
+    // if the file is available, write to it:
+    if (dataFile) {
+      dataFile.print(str);
+
+      // digitalWrite(LED_BUILTIN,HIGH);
+      // delay(10);
+      // digitalWrite(LED_BUILTIN,LOW);
+
+      dataFile.close();
+
+      // print to the serial port too:
+      Serial.print(str);
+    }
+
+    // else {
+    //   SD_failure = 1;
+    // }
+}
 
