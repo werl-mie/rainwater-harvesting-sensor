@@ -6,3 +6,4 @@
 **/*.csr
 **/*.crt
 **/arduino_secrets.h
+**/*.txt

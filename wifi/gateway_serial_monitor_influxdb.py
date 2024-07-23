@@ -1,7 +1,3 @@
-# Adapted from gateway_serial_monitor.py (by Dison Wu)
-# Date: May 19th, 2024
-# Author: Eren Rudy
-
 import os
 import sys
 import serial
@@ -10,6 +6,14 @@ import threading
 import queue
 import logging
 from datetime import datetime
+
+SERIAL_PORT = '/dev/ttyUSB0'
+SERIAL_BAUD_RATE = 9600
+ROOT_LOGGING_DIR = '/home/pi/logs'
+
+SERIAL_PROGRAMMER_STRING = 'FT232R'
+
+SITE_ID = 1
 
 # INFLUX-PUBLISH
 import influxdb_client
@@ -20,35 +24,10 @@ import tokens
 org = "werl"
 token = tokens.influx
 url="https://rudy-web.ca:8443"
-bucket = "test-star"
+bucket = "cc-test"
 influx_timeout = 10000
 
-### 
 
-# client = influxdb_client.InfluxDBClient(
-#     url=url,
-#     token=token,
-#     org=org,
-#     verify_ssl=False,
-#     timeout=10000
-# )
-
-# write_api = client.write_api(write_options=SYNCHRONOUS)
-
-SITE_ID = 0
-
-# INFLUX-PUBLISH
-
-
-
-SERIAL_PORT = '/dev/ttyUSB0'
-# SERIAL_PORT = '/dev/tty.usbmodem1301'
-SERIAL_BAUD_RATE = 9600
-# ROOT_LOGGING_DIR = '/home/pi/logs'
-ROOT_LOGGING_DIR = "~/logs"
-
-# SERIAL_PROGRAMMER_STRING = 'FT232R'
-SERIAL_PROGRAMMER_STRING = 'Feather'
         
 if __name__ == "__main__":
   
@@ -92,8 +71,6 @@ if __name__ == "__main__":
           logging.info(SERIAL_PROGRAMMER_STRING + " port found")
           break
 
-  # serial_port = "/dev/tty.usbmodem1301"
-
   try:
     ser=serial.Serial(serial_port,SERIAL_BAUD_RATE,timeout=1)
   except:
@@ -104,22 +81,16 @@ if __name__ == "__main__":
   ser=serial.Serial(serial_port,9600,timeout=1)
   
   with open(data_log_file_path, 'w') as f:
-    header = "time,pot,c_lvl_lo,c_lvl_hi,t_lvl_lo,t_lvl_hi,rain_count\n"
+    header = "time,node,parent,POT,level1,level2\n"
     f.write(header)
     f.flush()
     
     while True:
-
-      ts = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
       
       try:
         serial_input=ser.readline().decode('utf-8')
 
-        print(serial_input)
-
         if serial_input:
-
-          
           
           log_entry=str(serial_input)
           logging.debug(log_entry)
@@ -139,65 +110,51 @@ if __name__ == "__main__":
             write_api = client.write_api(write_options=SYNCHRONOUS)
 
             elements = serial_input.split()
-            data = elements[1]
-            packet_id = int(data[:2])
+            
+            node_addr = elements[1]
+            data_len = int(elements[2],16)
+            data = elements[3] # The data is printed as a hex string where each byte is represented in 2-digit
+            
+            if len(data) != data_len * 2:
+              logging.warning("Data length and the actual data size mismatch. Packet discarded.")
+          
+            elif len(data) == 12:
+              ts = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
-            if packet_id == 0: #CISTERN
-              measurement_name = "cistern"
-              pot_reading = int(data[2:6], 16)
-              c_lvl_lo = int(data[6:8], 16)
-              c_lvl_hi = int(data[8:10], 16)
+              measurement_name = "cc-node"
+
+              parent_addr = data[:4]
+              pot_reading = int(data[4:8], 16)
+              level_1_reading = int(data[8:10],16)
+              level_2_reading = int(data[10:12],16)
 
               p = influxdb_client.Point(measurement_name)\
               .tag("site_id",SITE_ID)\
+              .tag("node_id",node_addr)\
+              .tag("parent_id",parent_addr)\
               .field("pot", pot_reading)\
-              .field("lvl_lo", c_lvl_lo)\
-              .field("lvl_hi", c_lvl_hi)      
+              .field("lvl_1", level_1_reading)\
+              .field("lvl_2", level_2_reading)      
 
-              line = f"{ts},{pot_reading},{c_lvl_lo},{c_lvl_hi},,,,\n"
-              logging.info(f"{measurement_name} measurement from site {SITE_ID}: pot={pot_reading}, c_lvl_lo={c_lvl_lo}, c_lvl_hi={c_lvl_hi}")
-
-            elif packet_id == 1: #TLALOQUE
-              measurement_name = "tlaloque"
-              t_lvl_lo = int(data[2:4], 16)
-              t_lvl_hi = int(data[4:6], 16)
-
-              p = influxdb_client.Point(measurement_name)\
-              .tag("site_id",SITE_ID)\
-              .field("lvl_lo", t_lvl_lo)\
-              .field("lvl_hi", t_lvl_hi)
-
-              line = f"{ts},,,,{t_lvl_lo},{t_lvl_hi},,\n"
-              logging.info(f"{measurement_name} measurement from site {SITE_ID}: t_lvl_lo={t_lvl_lo}, t_lvl_hi={t_lvl_hi}")
-
-            elif packet_id == 2: #RAINGAUGE
-              measurement_name = "rain_gauge"
-              rain_count = int(data[2:6], 16)
+              line = f"{ts},{pot_reading},{level_1_reading},{level_2_reading}\n"
+              logging.info(f"{measurement_name} measurement from site {SITE_ID}, node {node_addr} (parent: {parent_addr}): pot={pot_reading}, lvl_1={level_1_reading}, lvl_2={level_2_reading}")
+                        
+                        
+              try:
+                write_api.write(bucket=bucket, org=org, record=p)
+              except:
+                logging.error("ReadTimeoutError")
+              else:
+                logging.info("Wrote to influxdb")
               
+              f.write(line)
+              f.flush()
 
-              p = influxdb_client.Point(measurement_name)\
-              .tag("site_id",SITE_ID)\
-              .field("rain_count", rain_count)
-
-              line = f"{ts},,,,,,{rain_count}\n"
-              logging.info(f"{measurement_name} measurement from site {SITE_ID}: rain_count={rain_count}")
-
-            logging.info("Writing to influxdb")
-            try:
-              write_api.write(bucket=bucket, org=org, record=p)
-            except:
-              logging.error("ReadTimeoutError")
-            else:
-              logging.info("Wrote to influxdb")
-
-            f.write(line)
-            f.flush()
-
-            write_api.close()
-            client.close()
+              write_api.close()
+              client.close()
 
       except serial.SerialException as se:
-        logging.error("Serial exception: " + str(se))
+        logging.error("Serial exception: ", + str(se))
       except UnicodeDecodeError as ude:
         logging.warning("Unicode decode error: " + str(ude))
       except TypeError as e:

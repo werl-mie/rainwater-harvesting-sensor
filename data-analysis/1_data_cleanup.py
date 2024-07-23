@@ -23,24 +23,34 @@ def tank_level(float_high, float_low):
     return tank_level
 
 
-df = pd.read_csv("out2.csv", index_col="ts", parse_dates=True)
+df = pd.read_csv("elena-may-2-gigastone.csv",index_col="ts",parse_dates=True)
+
+
 
 df.bucket_counts = df.bucket_counts.fillna(0)
+df.temp_am2320 = df.temp_am2320.fillna(0)
+
+df = df.dropna()
+
 
 df = df.interpolate()
+
+print(df)
 
 # Won't interpolate the vbat yet, because it is not numeric
 # Need to cast afterwards because can't cast the uninterpolated gap NaNs into int...
 
 df = df.astype(
     {
-        "temp": float,
+        "temp_rtc": float,
+        "temp_am2320": float,
+        # "temp": float,
         "vbat_raw": int,
         "tank_raw": int,
         "float0": int,
         "float1": int,
         "float2": int,
-        "float3": int,
+        # "float3": int,
         "bucket_counts": int,
     }
 )
@@ -65,12 +75,12 @@ df = df.interpolate()
 
 # print(df)
 
-df.to_csv("out2_clean_buckets.csv")
+# df.to_csv("out2_clean_buckets.csv")
 
 
-df["tlq_level"] = df.apply(lambda row: tank_level(row["float3"], row["float2"]), axis=1)
-df["cistern_level"] = df.apply(
-    lambda row: tank_level(row["float0"], row["float1"]), axis=1
-)
+# df["tlq_level"] = df.apply(lambda row: tank_level(row["float3"], row["float2"]), axis=1)
+# df["cistern_level"] = df.apply(
+#     lambda row: tank_level(row["float0"], row["float1"]), axis=1
+# )
 
 df.to_csv("out2_clean.csv")

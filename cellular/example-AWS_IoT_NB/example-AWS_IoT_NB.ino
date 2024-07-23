@@ -58,6 +58,8 @@ void setup() {
   // and the accompanying public certificate for it
   sslClient.setEccSlot(0, certificate);
 
+  nbAccess.setTimeout(30*1000);
+
   // Optional, set the client id used for MQTT,
   // each device that is connected to the broker
   // must have a unique client id. The MQTTClient will generate
@@ -71,24 +73,54 @@ void setup() {
 }
 
 void loop() {
-  if (nbAccess.status() != NB_READY || gprs.status() != GPRS_READY) {
-    connectNB();
+  
+  if (nbAccess.status() != NB_READY){//|| gprs.status() != GPRS_READY) {
+    Serial.print("Attempting to connect to the cellular network");
+    while ((nbAccess.begin(pinnumber) != NB_READY)){
+      // failed, retry
+      Serial.print(".");
+    }
   }
 
-  if (!mqttClient.connected()) {
-    // MQTT client is disconnected, connect
-    connectMQTT();
-  }
+  if (nbAccess.status() == NB_READY){
+    Serial.println("Connected to NB, connecting to MQTT");
 
-  // poll for new MQTT messages and send keep alives
-  mqttClient.poll();
+    if (!mqttClient.connected()) {
+      // MQTT client is disconnected, connect
+      // connectMQTT();
+      while (!mqttClient.connect(broker, 8883)) {
+          // failed, retry
+          Serial.print(".");
+          delay(5000);
+      }
+    }
 
-  // publish a message roughly every 5 seconds.
-  if (millis() - lastMillis > 5000) {
-    lastMillis = millis();
+    // poll for new MQTT messages and send keep alives
+    mqttClient.poll();
+
+    // publish a message roughly every 5 seconds.
+    // if (millis() - lastMillis > 5000) {
+    //   lastMillis = millis();
 
     publishMessage();
+    // }
+
+    delay(2000);
+
+    // Serial.println("Shutting down modem...");
+
+    if (nbAccess.shutdown()){
+      Serial.println("Modem successfully shutdown");
+    } else {
+      Serial.println("Failed to shutdown modem");
+    }
+
+  } else {
+    Serial.println("Not connected");
   }
+
+  Serial.println(".....");
+  Serial.println();
 }
 
 unsigned long getTime() {
@@ -99,13 +131,21 @@ unsigned long getTime() {
 void connectNB() {
   Serial.println("Attempting to connect to the cellular network");
 
-  while ((nbAccess.begin(pinnumber) != NB_READY) || (gprs.attachGPRS() != GPRS_READY)) {
-    // failed, retry
-    Serial.print(".");
-    delay(1000);
-  }
+  nbAccess.begin();
 
-  Serial.println("You're connected to the cellular network");
+  // while ((nbAccess.begin(pinnumber) != NB_READY)){//} || (gprs.attachGPRS() != GPRS_READY)) {
+  //   // failed, retry
+  //   Serial.print(".");
+  //   delay(1000);
+  // }
+
+   if (nbAccess.status() != NB_READY) {
+          Serial.println("Failed to connect to cellular");
+    } else {
+      Serial.println("Connected to cellular");
+    }
+
+  // Serial.println("You're connected to the cellular network");
   Serial.println();
 }
 
@@ -136,9 +176,11 @@ void publishMessage() {
   // send message, the Print interface can be used to set the message contents
   mqttClient.beginMessage("arduino/outgoing");
   // mqttClient.print("hello ");
-  mqttClient.print("{\"millis\": ");
-  mqttClient.print(millis());
-  mqttClient.print("}");
+  // mqttClient.print("{\"millis\": ");
+  // mqttClient.print(millis());
+  // mqttClient.print("}");
+
+  mqttClient.print("01020304F0FF0F");
 
   mqttClient.endMessage();
 }

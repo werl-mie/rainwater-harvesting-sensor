@@ -5,8 +5,6 @@
 # include <Arduino.h>
 
 #include "ArduinoLowPower.h"
-#include <RTCZero.h>
-#include "RTClib.h"
 #include <SPI.h>
 #include <SD.h>
 #include <Adafruit_SleepyDog.h>
@@ -26,7 +24,6 @@
 // #define TYPE_TLALOQUE
 // #define TYPE_RAINGAUGE
 
-
 #define PIN_CHIP_SELECT 4
 
 #define POT_SENSOR_PWR 9 //WHITE
@@ -39,10 +36,7 @@
 
 volatile uint16_t rain_gauge_count = 0;
 
-// Logging 
-RTCZero rtc_samd;
-File dataFile;
-DateTime now;
+
 char sprintf_buffer[19]; //timestamp string is exactly 19 characters long
 String buffer_str = "";
 // Logging 
@@ -103,7 +97,7 @@ static int at_send_check_response(char *p_ack, int timeout_ms, char*p_cmd, ...)
 static int recv_prase(void)
 {
 
-    while (Serial1.available() == 0){}
+    // while (Serial1.available() == 0){}
 
     char *p_start = NULL;
     char *p_start2 = NULL;
@@ -115,21 +109,22 @@ static int recv_prase(void)
     {
         ch = Serial1.read();
         recv_buf[index++] = ch;
-        // Serial.print((char)ch);
-        delay(2);
+        // Serial.write(ch);
+        // Serial.println((char)ch);
+        // delay(2);
         p_start = strstr(recv_buf, "+TEST: RX \"");
     } while (p_start == NULL);
 
     int i_packet = index;
 
-    do
-    {
-        ch = Serial1.read();
-        recv_buf[index++] = ch;
-        // Serial.print((char)ch);
-        delay(2);
-        p_start2 = strstr(recv_buf + i_packet, "\"");
-    } while (p_start2 == NULL);
+    // do
+    // {
+    //     ch = Serial1.read();
+    //     recv_buf[index++] = ch;
+    //     // Serial.print((char)ch);
+    //     delay(2);
+    //     p_start2 = strstr(recv_buf + i_packet, "\"");
+    // } while (p_start2 == NULL);
 
 
     if (index)
@@ -151,6 +146,8 @@ static int recv_prase(void)
 
         char msg[32] = {0,};
         char params[32] = {0,};
+
+        Serial.print(recv_buf);
 
         p_start = strstr(recv_buf, "+TEST: RX \"5345454544");
         if (p_start)
@@ -176,7 +173,6 @@ static int recv_prase(void)
 
                 Serial.print(msg);
                 Serial.print("\r\n");
-                log_to_sd(get_timestamp_str() + ", " + String(msg) + "\r\n");
             }
 
             p_start = strstr(recv_buf, "RSSI:");
@@ -196,8 +192,6 @@ static int recv_prase(void)
             sprintf(params, "[PARAMS] rssi: %d snr: %d len: %d", rssi, snr,len);
             Serial.print(params);
             Serial.print("\r\n");
-            log_to_sd(get_timestamp_str() + ", " + String(params) + "\r\n");
-
             return 1;
         }
     }
@@ -262,12 +256,10 @@ static int node_send(void)
     { 
         Serial.print(data);
         Serial.print(" sent successfully!\r\n");
-        log_to_sd(get_timestamp_str() + "," + String(data) + "\r\n");
     }
     else
     {
         Serial.print("Send failed!\r\n");
-        log_to_sd(get_timestamp_str() + " Send failed!\r\n");
 
     }
     return ret;
@@ -280,8 +272,8 @@ void setup(void)
   // Watchdog.enable(16000);
 
     Serial.begin(115200);
-    delay(500);
-    // while (!Serial);
+    // delay(500);
+    while (!Serial);
 
     Serial.print("Starting serial");
 
@@ -308,24 +300,21 @@ void setup(void)
 
     Serial.println("HELLO");
 
-    if (!SD.begin(PIN_CHIP_SELECT)) {
-      Serial.println("Card failed, or not present");
-      while (1);
-    }
+    // if (!SD.begin(PIN_CHIP_SELECT)) {
+    //   Serial.println("Card failed, or not present");
+    //   while (1);
+    // }
 
-    #ifdef TYPE_CISTERN
-      log_to_sd("CISTERN, SITE_ID: " + String(SITE_ID) + "\n\r");
-    #endif
-    #ifdef TYPE_TLALOQUE
-      log_to_sd("TLALOQUE, SITE_ID: " + String(SITE_ID) + "\n\r");
-    #endif
-    #ifdef TYPE_RAINGAUGE
-      log_to_sd("RAINGAUGE, SITE_ID: " + String(SITE_ID) + "\n\r");
-    #endif
+    // #ifdef TYPE_CISTERN
+    //   log_to_sd("CISTERN, SITE_ID: " + String(SITE_ID) + "\n\r");
+    // #endif
+    // #ifdef TYPE_TLALOQUE
+    //   log_to_sd("TLALOQUE, SITE_ID: " + String(SITE_ID) + "\n\r");
+    // #endif
+    // #ifdef TYPE_RAINGAUGE
+    //   log_to_sd("RAINGAUGE, SITE_ID: " + String(SITE_ID) + "\n\r");
+    // #endif
 
-    rtc_samd.begin();
-    rtc_samd.setDate(DAY, MONTH, YEAR);
-    rtc_samd.setTime(HOUR, MINUTE, SECOND);
 
     pinMode(PIN_LVL_HIGH, INPUT_PULLUP);
     pinMode(PIN_LVL_LOW, INPUT_PULLUP);
@@ -351,16 +340,15 @@ void loop(void)
 
       Watchdog.disable();
       #ifdef TYPE_CISTERN
-          LowPower.sleep(900000); // 15 minutes
-          // LowPower.sleep(30000); // 30 seconds
-          // delay(3000);
+          // LowPower.sleep(900000); // 15 minutes
+          delay(3000);
       #endif
       #ifdef TYPE_TLALOQUE
           LowPower.sleep(915000); // 15 minutes + 15 seconds
+          // delay(3000);
       #endif   
       #ifdef TYPE_RAINGAUGE
           LowPower.sleep(885000); // 15 minutes - 15 seconds
-          // LowPower.sleep(30000); // 30 seconds
       #endif
       Watchdog.enable(16000);
       
@@ -382,31 +370,5 @@ void isr_bucket(){
 
 void isr_dummy(){}
 
-String get_timestamp_str(){
-  sprintf(sprintf_buffer, "%d-%.2d-%.2d %.2d:%.2d:%.2d", rtc_samd.getYear(), rtc_samd.getMonth(), rtc_samd.getDay(), rtc_samd.getHours(), rtc_samd.getMinutes(), rtc_samd.getSeconds());
-  buffer_str = sprintf_buffer;
-  return buffer_str;
-}
 
-void log_to_sd(String str){
-
-    dataFile = SD.open("datalog.txt", FILE_WRITE);
-    // if the file is available, write to it:
-    if (dataFile) {
-      dataFile.print(str);
-
-      // digitalWrite(LED_BUILTIN,HIGH);
-      // delay(10);
-      // digitalWrite(LED_BUILTIN,LOW);
-
-      dataFile.close();
-
-      // print to the serial port too:
-      // Serial.print(str);
-    }
-
-    // else {
-    //   SD_failure = 1;
-    // }
-}
 
