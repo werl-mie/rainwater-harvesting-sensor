@@ -7,7 +7,7 @@ const char PINNUMBER[]  = "";
 // initialize the library instance
 NBClient client;
 GPRS gprs;
-NB nbAccess;
+NB nbAccess(true);
 
 // URL, path and port (for example: example.org)
 char server[] = "example.org";
