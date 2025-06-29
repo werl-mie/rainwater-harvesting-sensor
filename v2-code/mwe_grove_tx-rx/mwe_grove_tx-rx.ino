@@ -3,10 +3,10 @@
 
 #include "ArduinoLowPower.h"
 
-#define RX
+// #define RX
 #define DEVICE_ID 4
 
-#ifdef RX
+#ifdef SEEED
 U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/*reset=*/U8X8_PIN_NONE);
 // U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/*clock=*/ SCL, /*data=*/ SDA, /*reset=*/ U8X8_PIN_NONE);   // OLEDs without Reset of the Display
 #endif
@@ -151,42 +151,42 @@ static int recv_prase(void)
             if (p_start && (1 == sscanf(p_start, "5345454544%s", data)))
             {
                 data[4] = 0;
-                u8x8.setCursor(0, 4);
-                u8x8.print("               ");
-                u8x8.setCursor(2, 4);
-                u8x8.print("RX: 0x");
-                u8x8.print(data);
+                // u8x8.setCursor(0, 4);
+                // u8x8.print("               ");
+                // u8x8.setCursor(2, 4);
+                // u8x8.print("RX: 0x");
+                // u8x8.print(data);
                 Serial.print(data);
                 Serial.print("\r\n");
             }
 
-            p_start = strstr(recv_buf, "RSSI:");
-            if (p_start && (1 == sscanf(p_start, "RSSI:%d,", &rssi)))
-            {
-                u8x8.setCursor(0, 6);
-                u8x8.print("                ");
-                u8x8.setCursor(2, 6);
-                u8x8.print("rssi:");
-                u8x8.print(rssi);
-            }
-            p_start = strstr(recv_buf, "SNR:");
-            if (p_start && (1 == sscanf(p_start, "SNR:%d", &snr)))
-            {
-                u8x8.setCursor(0, 7);
-                u8x8.print("                ");
-                u8x8.setCursor(2, 7);
-                u8x8.print("snr :");
-                u8x8.print(snr);
-            }
-            p_start = strstr(recv_buf, "LEN:");
-            if (p_start && (1 == sscanf(p_start, "LEN:%d", &len)))
-            {
-                u8x8.setCursor(0, 5);
-                u8x8.print("                ");
-                u8x8.setCursor(2, 5);
-                u8x8.print("len :");
-                u8x8.print(len);
-            }
+            // p_start = strstr(recv_buf, "RSSI:");
+            // if (p_start && (1 == sscanf(p_start, "RSSI:%d,", &rssi)))
+            // {
+            //     u8x8.setCursor(0, 6);
+            //     u8x8.print("                ");
+            //     u8x8.setCursor(2, 6);
+            //     u8x8.print("rssi:");
+            //     u8x8.print(rssi);
+            // }
+            // p_start = strstr(recv_buf, "SNR:");
+            // if (p_start && (1 == sscanf(p_start, "SNR:%d", &snr)))
+            // {
+            //     u8x8.setCursor(0, 7);
+            //     u8x8.print("                ");
+            //     u8x8.setCursor(2, 7);
+            //     u8x8.print("snr :");
+            //     u8x8.print(snr);
+            // }
+            // p_start = strstr(recv_buf, "LEN:");
+            // if (p_start && (1 == sscanf(p_start, "LEN:%d", &len)))
+            // {
+            //     u8x8.setCursor(0, 5);
+            //     u8x8.print("                ");
+            //     u8x8.setCursor(2, 5);
+            //     u8x8.print("len :");
+            //     u8x8.print(len);
+            // }
 
             return 1;
         }
@@ -222,14 +222,15 @@ static int node_send(void)
     char msg[16];
     char msg_print[16];
 
-    memset(data, 0, sizeof(data));
-    sprintf(data, "%05X", count);
-    memset(device_id, 0, sizeof(device_id));
-    sprintf(device_id, "%03X", DEVICE_ID);
+    // memset(data, 0, sizeof(data));
+    sprintf(data, "%02X", count);
+    // memset(device_id, 0, sizeof(device_id));
+    sprintf(device_id, "%02X", DEVICE_ID);
     // sprintf(cmd, "AT+TEST=TXLRSTR,\"5345454544%s\"\r\n", data);
     sprintf(msg, "%s%s\r\n",device_id,data);
     sprintf(cmd, "AT+TEST=TXLRPKT,\"%s%s\"\r\n",device_id,data);
     // sprintf(cmd, "AT+TEST=TXLRSTR,\"AaBb\"\r\n");
+    Serial.println(cmd);
 
     ret = at_send_check_response("TX DONE", 2000, cmd);
 
@@ -251,7 +252,7 @@ static int node_send(void)
 void setup(void)
 {
 
-#ifdef RX
+#ifdef SEEED
     u8x8.begin();
     u8x8.setFlipMode(1);
     u8x8.setFont(u8x8_font_chroma48medium8_r);
@@ -263,7 +264,7 @@ void setup(void)
     Serial1.begin(9600);
     Serial.print("ping pong communication!\r\n");
 
-#ifdef RX
+#ifdef SEEED
     u8x8.setCursor(0, 0);
 #endif
 
@@ -274,7 +275,7 @@ void setup(void)
         at_send_check_response("+TEST: RFCFG", 1000, "AT+TEST=RFCFG,866,SF12,125,12,15,14,ON,OFF,OFF\r\n");
         delay(200);
 
-# ifdef RX
+# ifdef SEEED
         u8x8.setCursor(5, 0);
         u8x8.print("RX");
 # endif
@@ -284,7 +285,7 @@ void setup(void)
     {
         is_exist = false;
         Serial.print("No E5 module found.\r\n");
-#ifdef RX
+#ifdef SEEED
         u8x8.setCursor(0, 1);
         u8x8.print("unfound E5 !");
 #endif 
@@ -301,14 +302,14 @@ void loop(void)
       // Serial.print("TEST");
       node_send();
       // Serial.println(send_ret);
-      at_send_check_response("+LOWPOWER: SLEEP", 1000, "AT+LOWPOWER\r\n");
+    //   at_send_check_response("+LOWPOWER: SLEEP", 1000, "AT+LOWPOWER\r\n");
       // LowPower.sleep(600000); // 10 minutes
-      LowPower.sleep(5000);
-      // delay(50);
+    //   LowPower.sleep(5000);
+      delay(1000);
       
       // wake up LoRa modem
-      Serial1.printf("A"); 
-      delay(2);
+    //   Serial1.printf("A"); 
+    //   delay(2);
         // validate that LoRa modem is awake
         // if(at_send_check_response("+AT: OK", 100, "AT\r\n")){
         //   Serial.println("LoRa radio AWAKE");
