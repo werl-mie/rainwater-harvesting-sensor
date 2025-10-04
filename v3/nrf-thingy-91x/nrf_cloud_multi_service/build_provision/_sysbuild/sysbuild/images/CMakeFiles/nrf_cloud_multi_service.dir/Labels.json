@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/CMakeFiles/nrf_cloud_multi_service"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/CMakeFiles/nrf_cloud_multi_service.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/CMakeFiles/nrf_cloud_multi_service-complete.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/nrf_cloud_multi_service-prefix/src/nrf_cloud_multi_service-stamp/nrf_cloud_multi_service-build.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/nrf_cloud_multi_service-prefix/src/nrf_cloud_multi_service-stamp/nrf_cloud_multi_service-configure.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/nrf_cloud_multi_service-prefix/src/nrf_cloud_multi_service-stamp/nrf_cloud_multi_service-download.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/nrf_cloud_multi_service-prefix/src/nrf_cloud_multi_service-stamp/nrf_cloud_multi_service-install.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/nrf_cloud_multi_service-prefix/src/nrf_cloud_multi_service-stamp/nrf_cloud_multi_service-mkdir.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/nrf_cloud_multi_service-prefix/src/nrf_cloud_multi_service-stamp/nrf_cloud_multi_service-patch.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/nrf_cloud_multi_service-prefix/src/nrf_cloud_multi_service-stamp/nrf_cloud_multi_service-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"nrf_cloud_multi_service"
+		],
+		"name" : "nrf_cloud_multi_service"
+	}
+}

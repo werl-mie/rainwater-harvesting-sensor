@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/CMakeFiles/s1_image"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/CMakeFiles/s1_image.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/CMakeFiles/s1_image-complete.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/s1_image-prefix/src/s1_image-stamp/s1_image-build.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/s1_image-prefix/src/s1_image-stamp/s1_image-configure.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/s1_image-prefix/src/s1_image-stamp/s1_image-download.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/s1_image-prefix/src/s1_image-stamp/s1_image-install.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/s1_image-prefix/src/s1_image-stamp/s1_image-mkdir.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/s1_image-prefix/src/s1_image-stamp/s1_image-patch.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/modules/nrf/s1_image-prefix/src/s1_image-stamp/s1_image-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"s1_image"
+		],
+		"name" : "s1_image"
+	}
+}

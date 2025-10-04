@@ -1,0 +1,32 @@
+&i2c2 {
+    compatible = "nordic,nrf-twim";
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_STANDARD>;
+
+    pinctrl-0 = <&i2c2_default>;
+    pinctrl-1 = <&i2c2_sleep>;
+    pinctrl-names = "default", "sleep";
+
+	ltc2941: ltc2941@64 {
+		compatible = "i2c-device";
+		reg = <0x64>;
+		label = "LTC";
+	};
+};
+
+&gpio0 {
+	status = "okay";
+	/* Use PORT event rather than GPIOTE IN event, to save power */
+	sense-edge-mask = <0xffffffff>;
+	/* Load switch controlling 3.3V supply and I/O voltage for external boards */
+	my_gpio: my_gpio {
+		gpio-hog;
+		output-high;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+	};	
+
+	exp_board_enable: exp_board_enable {
+		status = "disabled";
+	};
+
+};

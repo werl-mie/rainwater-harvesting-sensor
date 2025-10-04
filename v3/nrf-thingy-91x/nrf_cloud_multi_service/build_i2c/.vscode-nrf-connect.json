@@ -1,0 +1,21 @@
+{
+  "toolchainPath": "/opt/nordic/ncs/toolchains/b8efef2ad5",
+  "sdkPath": "/opt/nordic/ncs/v3.0.0",
+  "board": "thingy91x/nrf9151/ns",
+  "boardDir": "/opt/nordic/ncs/v3.0.0/nrf/boards/nordic/thingy91x",
+  "boardDirs": [
+    "/opt/nordic/ncs/v3.0.0/nrf/boards/nordic/thingy91x"
+  ],
+  "optimizations": "none",
+  "cmakeArgs": [],
+  "confFiles": [],
+  "buildDirectory": "build_i2c",
+  "kconfigFragments": [
+    "overlay-i2c_shell.conf"
+  ],
+  "snippets": [],
+  "dtcOverlays": [],
+  "extraDtcOverlays": [
+    "overlay_dt_i2c.overlay"
+  ]
+}

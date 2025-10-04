@@ -1,0 +1,68 @@
+cmake:
+  application:
+    configuration-dir: /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/sysbuild/mcuboot
+    source-dir: /opt/nordic/ncs/v3.0.0/bootloader/mcuboot/boot/zephyr
+  board:
+    name: thingy91x
+    path:
+     - /opt/nordic/ncs/v3.0.0/nrf/boards/nordic/thingy91x
+    qualifiers: nrf9151
+    revision: 
+  devicetree:
+    bindings-dirs:
+     - /opt/nordic/ncs/v3.0.0/nrf/dts/bindings
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/bindings
+    files:
+     - /opt/nordic/ncs/v3.0.0/nrf/boards/nordic/thingy91x/thingy91x_nrf9151.dts
+     - /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/sysbuild/mcuboot/boards/thingy91x_nrf9151.overlay
+    include-dirs:
+     - /opt/nordic/ncs/v3.0.0/nrf/include
+     - /opt/nordic/ncs/v3.0.0/nrf/dts/common
+     - /opt/nordic/ncs/v3.0.0/nrf/dts/riscv
+     - /opt/nordic/ncs/v3.0.0/nrf/dts/arm
+     - /opt/nordic/ncs/v3.0.0/nrf/dts
+     - /opt/nordic/ncs/v3.0.0/bootloader/mcuboot/boot/zephyr/include
+     - /opt/nordic/ncs/v3.0.0/nrf/boards/nordic/thingy91x/dts
+     - /opt/nordic/ncs/v3.0.0/zephyr/include
+     - /opt/nordic/ncs/v3.0.0/zephyr/include/zephyr
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/common
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/x86
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/xtensa
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/sparc
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/riscv
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/posix
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/nios2
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/arm64
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/arm
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts/arc
+     - /opt/nordic/ncs/v3.0.0/zephyr/dts
+    user-files:
+     - /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/sysbuild/mcuboot/boards/thingy91x_nrf9151.overlay
+  kconfig:
+    extra-user-files:
+     - /opt/nordic/ncs/v3.0.0/nrf/modules/mcuboot/tfm.conf
+     - /opt/nordic/ncs/v3.0.0/nrf/subsys/bootloader/bl_override/override_external_mcuboot.conf
+     - /opt/nordic/ncs/v3.0.0/nrf/subsys/bootloader/image/log_minimal.conf
+     - /opt/nordic/ncs/v3.0.0/bootloader/mcuboot/boot/zephyr/external_crypto.conf
+    files:
+     - /opt/nordic/ncs/v3.0.0/nrf/boards/nordic/thingy91x/thingy91x_nrf9151_defconfig
+     - /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/sysbuild/mcuboot/prj.conf
+     - /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/sysbuild/mcuboot/boards/thingy91x_nrf9151.conf
+     - /opt/nordic/ncs/v3.0.0/nrf/modules/mcuboot/tfm.conf
+     - /opt/nordic/ncs/v3.0.0/nrf/subsys/bootloader/bl_override/override_external_mcuboot.conf
+     - /opt/nordic/ncs/v3.0.0/nrf/subsys/bootloader/image/log_minimal.conf
+     - /opt/nordic/ncs/v3.0.0/bootloader/mcuboot/boot/zephyr/external_crypto.conf
+     - /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/mcuboot/zephyr/.config.sysbuild
+    user-files:
+     - /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/sysbuild/mcuboot/prj.conf
+     - /Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/sysbuild/mcuboot/boards/thingy91x_nrf9151.conf
+  toolchain:
+    name: zephyr
+    path: /opt/nordic/ncs/toolchains/b8efef2ad5/opt/zephyr-sdk
+  vendor-specific:
+    nordic:
+      svdfile: /opt/nordic/ncs/v3.0.0/modules/hal/nordic/nrfx/mdk/nrf9120.svd
+  zephyr:
+    version: 4.0.99
+    zephyr-base: /opt/nordic/ncs/v3.0.0/zephyr
+version: 0.1.0
