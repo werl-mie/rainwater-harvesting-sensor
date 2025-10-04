@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot-complete.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-build.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-configure.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-download.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-install.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-mkdir.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-patch.rule"
+		},
+		{
+			"file" : "/Users/erudy/werl/post-masc/thingy91/nrf_cloud_multi_service/build_provision/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"mcuboot"
+		],
+		"name" : "mcuboot"
+	}
+}
