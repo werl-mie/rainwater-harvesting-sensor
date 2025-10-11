@@ -1,2 +1,0 @@
-# Load board Kconfig descriptions.
-osource "/opt/nordic/ncs/v3.0.0/nrf/boards/nordic/thingy91x/Kconfig.thingy91x"

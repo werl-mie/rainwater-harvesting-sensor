@@ -10,7 +10,9 @@
   "cmakeArgs": [],
   "confFiles": [],
   "buildDirectory": "build",
-  "kconfigFragments": [],
+  "kconfigFragments": [
+    "overlay-http_nrf_provisioning.conf"
+  ],
   "snippets": [],
   "dtcOverlays": [],
   "extraDtcOverlays": []

@@ -1,5 +1,0 @@
-pgps:
-  placement:
-    before: [tfm_storage, end]
-  inside: [nonsecure_storage]
-  size: 0x15000
