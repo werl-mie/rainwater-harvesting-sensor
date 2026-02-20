@@ -20,7 +20,6 @@ String inputBuffer = "";
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 
-  // --- 10S SAFETY FLASHING WINDOW ---
   for (int i = 0; i < 40; i++) {
     digitalWrite(LED_BUILTIN, HIGH); delay(125);
     digitalWrite(LED_BUILTIN, LOW); delay(125);
@@ -48,14 +47,12 @@ void setup() {
 }
 
 void loop() {
-  // 1. INSTANT LOCAL EVENT: SWITCH
   int currentSwitch = digitalRead(PIN_SWITCH);
   if (currentSwitch != lastSwitchState) {
-    logData("LOCAL", "SWITCH", currentSwitch == LOW ? 1 : 0);
+    logData("LOCAL", "Float", currentSwitch == LOW ? "FAR" : "CLOSE");
     lastSwitchState = currentSwitch;
   }
 
-  // 2. NON-BLOCKING RADIO CHECK
   while (Serial1.available()) {
     char c = Serial1.read();
     if (c == '\n' || c == '\r') {
@@ -66,13 +63,10 @@ void loop() {
     }
   }
 
-  // 3. TIMER EVENT: ANALOG SENSORS (Every 15s)
   if (digitalRead(PIN_RTC_INT) == LOW) {
     readTimerSensors();
-    // No manual reset needed for this PCF8523 mode
   }
 
-  // Maintenance: Re-arm radio every 30s to be safe
   static uint32_t lastRXReset = 0;
   if (millis() - lastRXReset > 30000) {
     dev.sendCmd("AT+TEST=RXLRPKT\r\n");
@@ -91,36 +85,49 @@ void parseLoraLine(String line) {
       int mVal  = (int)strtol(rawHex.substring(16, 20).c_str(), NULL, 16);
 
       String label = "UNKNOWN";
-      if (mType == 1)      label = "REMOTE_BUCKET";
-      else if (mType == 2) label = "REMOTE_LEAF";
-      else if (mType == 3) label = "REMOTE_FLOAT_TOP";
-      else if (mType == 4) label = "REMOTE_FLOAT_BOT";
-      else                 label = "REMOTE_ID_" + String(mType);
+      String statusStr = String(mVal); 
 
-      logData("LORA", label, mVal);
+      if (mType == 1) {
+        label = "REMOTE_BUCKET";
+      } 
+      else if (mType == 2) {
+        label = "REMOTE_LEAF";
+        statusStr = (mVal == LOW) ? "PRESSED" : "LIFTED";
+      } 
+      else if (mType == 3) {
+        label = "REMOTE_FLOAT_TOP";
+        statusStr = (mVal == LOW) ? "FAR" : "CLOSE";
+      } 
+      else if (mType == 4) {
+        label = "REMOTE_FLOAT_BOT";
+        statusStr = (mVal == LOW) ? "FAR" : "CLOSE";
+      }
+
+      logData("LORA", label, statusStr);
     }
     dev.sendCmd("AT+TEST=RXLRPKT\r\n");
   }
 }
 
 void readTimerSensors() {
-  logData("LOCAL", "Pressure", analogRead(PIN_ANALOG_PRES));
-  logData("LOCAL", "Turbidity", analogRead(PIN_ANALOG_TURB));
+  logData("LOCAL", "Pressure", String(analogRead(PIN_ANALOG_PRES)));
+  logData("LOCAL", "Turbidity", String(analogRead(PIN_ANALOG_TURB)));
 
   Wire.beginTransmission(BH1750_ADDRESS);
   Wire.write(0x10);
   Wire.endTransmission();
   delay(180);
   Wire.requestFrom(BH1750_ADDRESS, 2);
-  if(Wire.available() == 2) {
-    uint16_t raw = (Wire.read() << 8) | Wire.read();
-    logData("LOCAL", "Lux", (int)(raw / 1.2));
+if(Wire.available() == 2) {
+    uint16_t data = (Wire.read() << 8) | Wire.read();
+    float luxVal = ((float)data) / 1.2;
+    logData("LOCAL", "Lux", String(luxVal, 2));
   }
 }
 
-void logData(String src, String sensor, int val) {
+void logData(String src, String sensor, String val) {
   DateTime now = rtc.now();
-  String entry = src + "," + sensor + "," + String(now.unixtime()) + "," + String(val);
+  String entry = src + "," + sensor + "," + String(now.unixtime()) + "," + val;
   Serial.println(entry);
   if (sd_active) {
     File f = SD.open("datalog.csv", FILE_WRITE);
