@@ -1,26 +1,129 @@
-#include <Arduino.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include "RTClib.h"
 #include "GroveLora.h"
 
+#define PIN_SD_CS 4 
+#define PIN_RTC_INT 5
+#define PIN_SWITCH 12      
+#define PIN_ANALOG_PRES A1 
+#define PIN_ANALOG_TURB A2 
+#define BH1750_ADDRESS 0x23
+
+RTC_PCF8523 rtc;
 GroveLora dev;
-SensorDatum_t incomingData;
+bool sd_active = false;
+int lastSwitchState;
+String inputBuffer = ""; 
 
 void setup() {
-  Serial.begin(115200);
-  Serial1.begin(9600);
-  while(!Serial && millis() < 5000); 
+  pinMode(LED_BUILTIN, OUTPUT);
 
-  Serial.println("RX STARTING...");
+  // --- 10S SAFETY FLASHING WINDOW ---
+  for (int i = 0; i < 40; i++) {
+    digitalWrite(LED_BUILTIN, HIGH); delay(125);
+    digitalWrite(LED_BUILTIN, LOW); delay(125);
+  }
+
+  Serial.begin(115200);
+  Serial1.begin(9600); 
+  Wire.begin();
+  
+  pinMode(PIN_SWITCH, INPUT_PULLUP);
+  pinMode(PIN_RTC_INT, INPUT_PULLUP);
+  lastSwitchState = digitalRead(PIN_SWITCH);
+
+  if (rtc.begin()) {
+    rtc.deconfigureAllTimers();
+    rtc.enableCountdownTimer(PCF8523_FrequencySecond, 15);
+  }
+  if (SD.begin(PIN_SD_CS)) sd_active = true;
+
   dev.sendCmd("AT+MODE=TEST\r\n"); delay(200);
   dev.sendCmd("AT+TEST=RFCFG,915,SF7,125,12,15,14,ON,OFF,OFF\r\n"); delay(200);
   dev.sendCmd("AT+TEST=RXLRPKT\r\n");
-  Serial.println("RX LISTENING ON 915MHz...");
+  
+  Serial.println("Source,SensorName,UnixTime,Value");
 }
 
 void loop() {
-  if (dev.checkRX(&incomingData)) {
-    Serial.println("---------------------------");
-    Serial.print("!!! SUCCESS! Value: ");
-    Serial.println(incomingData.data);
-    Serial.println("---------------------------");
+  // 1. INSTANT LOCAL EVENT: SWITCH
+  int currentSwitch = digitalRead(PIN_SWITCH);
+  if (currentSwitch != lastSwitchState) {
+    logData("LOCAL", "SWITCH", currentSwitch == LOW ? 1 : 0);
+    lastSwitchState = currentSwitch;
+  }
+
+  // 2. NON-BLOCKING RADIO CHECK
+  while (Serial1.available()) {
+    char c = Serial1.read();
+    if (c == '\n' || c == '\r') {
+      if (inputBuffer.length() > 0) parseLoraLine(inputBuffer);
+      inputBuffer = ""; 
+    } else {
+      inputBuffer += c;
+    }
+  }
+
+  // 3. TIMER EVENT: ANALOG SENSORS (Every 15s)
+  if (digitalRead(PIN_RTC_INT) == LOW) {
+    readTimerSensors();
+    // No manual reset needed for this PCF8523 mode
+  }
+
+  // Maintenance: Re-arm radio every 30s to be safe
+  static uint32_t lastRXReset = 0;
+  if (millis() - lastRXReset > 30000) {
+    dev.sendCmd("AT+TEST=RXLRPKT\r\n");
+    lastRXReset = millis();
+  }
+}
+
+void parseLoraLine(String line) {
+  if (line.indexOf("RX \"") != -1) {
+    int startQuote = line.indexOf("\"") + 1;
+    int endQuote = line.indexOf("\"", startQuote);
+    String rawHex = line.substring(startQuote, endQuote);
+
+    if (rawHex.length() >= 20) {
+      int mType = (int)strtol(rawHex.substring(14, 16).c_str(), NULL, 16);
+      int mVal  = (int)strtol(rawHex.substring(16, 20).c_str(), NULL, 16);
+
+      String label = "UNKNOWN";
+      if (mType == 1)      label = "REMOTE_BUCKET";
+      else if (mType == 2) label = "REMOTE_LEAF";
+      else if (mType == 3) label = "REMOTE_FLOAT_TOP";
+      else if (mType == 4) label = "REMOTE_FLOAT_BOT";
+      else                 label = "REMOTE_ID_" + String(mType);
+
+      logData("LORA", label, mVal);
+    }
+    dev.sendCmd("AT+TEST=RXLRPKT\r\n");
+  }
+}
+
+void readTimerSensors() {
+  logData("LOCAL", "Pressure", analogRead(PIN_ANALOG_PRES));
+  logData("LOCAL", "Turbidity", analogRead(PIN_ANALOG_TURB));
+
+  Wire.beginTransmission(BH1750_ADDRESS);
+  Wire.write(0x10);
+  Wire.endTransmission();
+  delay(180);
+  Wire.requestFrom(BH1750_ADDRESS, 2);
+  if(Wire.available() == 2) {
+    uint16_t raw = (Wire.read() << 8) | Wire.read();
+    logData("LOCAL", "Lux", (int)(raw / 1.2));
+  }
+}
+
+void logData(String src, String sensor, int val) {
+  DateTime now = rtc.now();
+  String entry = src + "," + sensor + "," + String(now.unixtime()) + "," + String(val);
+  Serial.println(entry);
+  if (sd_active) {
+    File f = SD.open("datalog.csv", FILE_WRITE);
+    if (f) { f.println(entry); f.close(); }
   }
 }
