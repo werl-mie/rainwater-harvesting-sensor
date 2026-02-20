@@ -12,13 +12,13 @@
 GroveLora dev;
 volatile bool flag_event_change = false;
 volatile int bucketCount = 0;
+volatile unsigned long lastBucketTime = 0; // Track last tip time
 int lastLeaf, lastTop, lastBot;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 
   // --- 10S SAFETY FLASHING WINDOW ---
-  // LED blinks fast: This is the time to upload new code!
   for (int i = 0; i < 40; i++) {
     digitalWrite(LED_BUILTIN, HIGH); delay(125);
     digitalWrite(LED_BUILTIN, LOW); delay(125);
@@ -48,8 +48,14 @@ void setup() {
 }
 
 void loop() {
+  // --- 10 MINUTE BUCKET RESET LOGIC ---
+  // 600,000 ms = 10 minutes
+  if (bucketCount > 0 && (millis() - lastBucketTime > 600000)) {
+    bucketCount = 0;
+    Serial.println(F(">>> 10 MIN INACTIVITY: BUCKET COUNT RESET TO 0"));
+  }
+
   if (flag_event_change) {
-    // Reactivate USB Serial
     Serial.begin(115200);
     unsigned long startWait = millis();
     while(!Serial && (millis() - startWait < 500)); 
@@ -60,7 +66,7 @@ void loop() {
     Serial.println(F(">>> DATA SENT. SLEEPING..."));
     Serial.flush();
     
-    delay(2000); // Window to see the print
+    delay(2000); 
     digitalWrite(LED_BUILTIN, LOW);
     flag_event_change = false;
   }
@@ -70,16 +76,20 @@ void loop() {
 }
 
 void isr_bucket() {
-  static unsigned long last_tip = 0;
-  if (millis() - last_tip > 200) { bucketCount++; flag_event_change = true; }
-  last_tip = millis();
+  static unsigned long last_tip_debounce = 0;
+  if (millis() - last_tip_debounce > 200) { 
+    bucketCount++; 
+    lastBucketTime = millis(); // Update the "last active" timestamp
+    flag_event_change = true; 
+  }
+  last_tip_debounce = millis();
 }
 
 void isr_generic() { flag_event_change = true; }
 
 void processSensors() {
   static int lastSentBucket = 0;
-  if (bucketCount > lastSentBucket) { transmit(1, bucketCount); lastSentBucket = bucketCount; }
+  if (bucketCount != lastSentBucket) { transmit(1, bucketCount); lastSentBucket = bucketCount; }
 
   int cLeaf = digitalRead(PIN_SNS_LEAFSWITCH);
   if (cLeaf != lastLeaf) { transmit(2, cLeaf); lastLeaf = cLeaf; }
