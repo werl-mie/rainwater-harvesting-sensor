@@ -6,9 +6,9 @@
 
 #define PIN_SD_CS 4 
 #define PIN_RTC_INT 5
-#define PIN_SWITCH 12      
-#define PIN_ANALOG_PRES A1 
-#define PIN_ANALOG_TURB A2 
+#define PIN_SWITCH 12  
+#define PIN_ANALOG_TURB A1
+#define PIN_ANALOG_PRES A2
 #define BH1750_ADDRESS 0x23
 
 RTC_PCF8523 rtc;
@@ -110,18 +110,35 @@ void parseLoraLine(String line) {
 }
 
 void readTimerSensors() {
-  logData("LOCAL", "Pressure", String(analogRead(PIN_ANALOG_PRES)));
-  logData("LOCAL", "Turbidity", String(analogRead(PIN_ANALOG_TURB)));
+  //PRESSURE needs altering
+  //logData("LOCAL", "Pressure", String(analogRead(PIN_ANALOG_PRES)));
+  int rawADC = analogRead(PIN_ANALOG_PRES);
+  float voltAtPin = rawADC * (2.5 / 1023.0);
+  float voltFromSensor = voltAtPin * 2.0; // Reversing voltage divider
+  float maxBar  = 59.0;  // given in manual 
+  float pressureVal = (voltFromSensor) * (maxBar / 5.0) * 14.5038; //convert to PSI
+  if (pressureVal < 0) pressureVal = 0;
+  logData("LOCAL", "Pressure", String(pressureVal, 2));
+  
+  //TURBIDITY // not changing....
+  rawADC = analogRead(PIN_ANALOG_TURB);
+  //Convert ADC to voltage at the PIN (0-2.5V)
+  voltAtPin = rawADC * (2.5 / 1023.0);
+  //Account for the voltage divider (scaling 2.5V back to 5V)
+  voltFromSensor = voltAtPin * 2; 
+  //Polynomial: 349x^2 - 3525x + 8836 BASED OF MANUAL GRAPH 
+  float ntu = (349 * voltFromSensor * voltFromSensor) - (3525 * voltFromSensor) + 8836;
+  if (ntu < 0 || voltFromSensor > 4.5) ntu = 0;
+  logData("LOCAL", "Turbidity_NTU", String(ntu, 1));
 
   Wire.beginTransmission(BH1750_ADDRESS);
   Wire.write(0x10);
   Wire.endTransmission();
   delay(180);
   Wire.requestFrom(BH1750_ADDRESS, 2);
-if(Wire.available() == 2) {
-    uint16_t data = (Wire.read() << 8) | Wire.read();
-    float luxVal = ((float)data) / 1.2;
-    logData("LOCAL", "Lux", String(luxVal, 2));
+  if(Wire.available() == 2) { // not printing....
+    uint16_t raw = (Wire.read() << 8) | Wire.read();
+    logData("LOCAL", "Lux", String((int)(raw / 1.2)),1);
   }
 }
 
