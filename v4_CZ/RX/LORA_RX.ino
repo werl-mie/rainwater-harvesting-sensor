@@ -7,8 +7,8 @@
 #define PIN_SD_CS 4 
 #define PIN_RTC_INT 5
 #define PIN_SWITCH 12  
-#define PIN_ANALOG_TURB A1
-#define PIN_ANALOG_PRES A2
+#define PIN_ANALOG_TURB A1 //NOT USED
+#define PIN_ANALOG_PRES A0
 #define BH1750_ADDRESS 0x23
 
 RTC_PCF8523 rtc;
@@ -34,6 +34,7 @@ void setup() {
   lastSwitchState = digitalRead(PIN_SWITCH);
 
   if (rtc.begin()) {
+    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); //ONLY SET ONCE 
     rtc.deconfigureAllTimers();
     rtc.enableCountdownTimer(PCF8523_FrequencySecond, 15);
   }
@@ -109,45 +110,96 @@ void parseLoraLine(String line) {
   }
 }
 
-void readTimerSensors() {
-  //PRESSURE needs altering
-  //logData("LOCAL", "Pressure", String(analogRead(PIN_ANALOG_PRES)));
-  int rawADC = analogRead(PIN_ANALOG_PRES);
-  float voltAtPin = rawADC * (2.5 / 1023.0);
-  float voltFromSensor = voltAtPin * 2.0; // Reversing voltage divider
-  float maxBar  = 59.0;  // given in manual 
-  float pressureVal = (voltFromSensor) * (maxBar / 5.0) * 14.5038; //convert to PSI
-  if (pressureVal < 0) pressureVal = 0;
-  logData("LOCAL", "Pressure", String(pressureVal, 2));
+// void readTimerSensors() {
+
+//   //add pressure sensor (code below until pressure ends works )
+
+//   // void setup() {
+//   //   // Initialize serial communication at 9600 bits per second:
+//   //   Serial.begin(9600);
+//   // }
+
+//   // void loop() {
+//   //   // Read the input on analog pin 0:
+//   //   int sensorValue = analogRead(A0);
+    
+//   //   // Print out the value you read:
+//   //   Serial.println(sensorValue);
+    
+//   //   // A small delay to keep the serial monitor readable
+//   //   delay(100);        
+//   // }
+
+//   //pressure end 
+
+//   //add lux sensor (code below until "lux end works")
   
-  //TURBIDITY // not changing....
-  rawADC = analogRead(PIN_ANALOG_TURB);
-  //Convert ADC to voltage at the PIN (0-2.5V)
-  voltAtPin = rawADC * (2.5 / 1023.0);
-  //Account for the voltage divider (scaling 2.5V back to 5V)
-  voltFromSensor = voltAtPin * 2; 
-  //Polynomial: 349x^2 - 3525x + 8836 BASED OF MANUAL GRAPH 
-  float ntu = (349 * voltFromSensor * voltFromSensor) - (3525 * voltFromSensor) + 8836;
-  if (ntu < 0 || voltFromSensor > 4.5) ntu = 0;
-  logData("LOCAL", "Turbidity_NTU", String(ntu, 1));
+//   // #include <Wire.h>
 
+//   // #define ADDR 0x23 // I2C address [cite: 333]
+
+//   // void setup() {
+//   //   Wire.begin();
+//   //   Serial.begin(9600);
+//   //   while (!Serial);
+//   // }
+
+//   // void loop() {
+//   //   Wire.beginTransmission(ADDR);
+//   //   Wire.write(0x10); 
+//   //   Wire.endTransmission(false); 
+
+//   //   delay(20); 
+//   //   Wire.requestFrom(ADDR, 2);
+
+//   //   if (Wire.available() == 2) {
+//   //     uint16_t raw = (Wire.read() << 8) | Wire.read();
+//   //     float lux = raw / 1.2;
+//   //     Serial.print("LUX: ");
+//   //     Serial.println(lux);
+//   //   }
+
+//   //   delay(500);
+//   // }
+
+//   //lux end
+
+// }
+
+void readTimerSensors() {
+  // --- PRESSURE SENSOR (Analog) ---
+  int pressureRaw = analogRead(PIN_ANALOG_PRES);
+  logData("LOCAL", "Pressure", String(pressureRaw));
+
+  // --- LUX SENSOR (I2C) ---
   Wire.beginTransmission(BH1750_ADDRESS);
-  Wire.write(0x10);
-  Wire.endTransmission();
-  delay(180);
-  Wire.requestFrom(BH1750_ADDRESS, 2);
-  if(Wire.available() == 2) { // not printing....
-    uint16_t raw = (Wire.read() << 8) | Wire.read();
-    logData("LOCAL", "Lux", String((int)(raw / 1.2)),1);
-  }
-}
+  Wire.write(0x10); 
+  Wire.endTransmission(false); 
 
+  delay(20); // Mandatory sensor processing delay 
+  
+  Wire.requestFrom(BH1750_ADDRESS, 2);
+  if (Wire.available() == 2) {
+    uint16_t raw = (Wire.read() << 8) | Wire.read();
+    float lux = raw / 1.2; // Standard BH1750 scaling factor
+    logData("LOCAL", "Lux", String(lux));
+  } else {
+    logData("LOCAL", "Lux", "ERR_TIMEOUT");
+  }
+
+}
 void logData(String src, String sensor, String val) {
   DateTime now = rtc.now();
-  String entry = src + "," + sensor + "," + String(now.unixtime()) + "," + val;
+  String humanTime = now.timestamp(); 
+  String entry = src + "," + sensor + "," + humanTime + "," + val;
+  
   Serial.println(entry);
+  
   if (sd_active) {
     File f = SD.open("datalog.csv", FILE_WRITE);
-    if (f) { f.println(entry); f.close(); }
+    if (f) { 
+      f.println(entry); 
+      f.close(); 
+    }
   }
 }
