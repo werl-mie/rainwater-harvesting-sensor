@@ -1,24 +1,25 @@
-#include "ArduinoLowPower.h"
+#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
-#include <Adafruit_SleepyDog.h>
+#include "RTClib.h"
 #include "GroveLora.h"
 
-#define PIN_SNS_BUCKET 12      
-#define PIN_SNS_LEAFSWITCH 6  
-#define PIN_SNS_FLOATTOP 11    
-#define PIN_SNS_FLOATBOT 9    
+#define PIN_SD_CS 4 
+#define PIN_RTC_INT 5
+#define PIN_SWITCH 12  
+#define PIN_ANALOG_TURB A1 //NOT USED
+#define PIN_ANALOG_PRES A0
+#define BH1750_ADDRESS 0x23
 
+RTC_PCF8523 rtc;
 GroveLora dev;
-volatile bool flag_event_change = false;
-volatile int bucketCount = 0;
-volatile unsigned long lastBucketTime = 0; // Track last tip time
-int lastLeaf, lastTop, lastBot;
+bool sd_active = false;
+int lastSwitchState;
+String inputBuffer = ""; 
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 
-  // --- 10S SAFETY FLASHING WINDOW ---
   for (int i = 0; i < 40; i++) {
     digitalWrite(LED_BUILTIN, HIGH); delay(125);
     digitalWrite(LED_BUILTIN, LOW); delay(125);
@@ -26,87 +27,134 @@ void setup() {
 
   Serial.begin(115200);
   Serial1.begin(9600); 
+  Wire.begin();
   
+  pinMode(PIN_SWITCH, INPUT_PULLUP);
+  pinMode(PIN_RTC_INT, INPUT_PULLUP);
+  lastSwitchState = digitalRead(PIN_SWITCH);
+
+  if (rtc.begin()) {
+    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); //ONLY SET ONCE 
+    rtc.deconfigureAllTimers();
+    rtc.enableCountdownTimer(PCF8523_FrequencySecond, 15);
+  }
+  if (SD.begin(PIN_SD_CS)) sd_active = true;
+
   dev.sendCmd("AT+MODE=TEST\r\n"); delay(200);
   dev.sendCmd("AT+TEST=RFCFG,915,SF7,125,12,15,14,ON,OFF,OFF\r\n"); delay(200);
-
-  pinMode(PIN_SNS_BUCKET, INPUT_PULLUP);
-  pinMode(PIN_SNS_LEAFSWITCH, INPUT_PULLUP);
-  pinMode(PIN_SNS_FLOATTOP, INPUT_PULLUP);
-  pinMode(PIN_SNS_FLOATBOT, INPUT_PULLUP);
-
-  lastLeaf = digitalRead(PIN_SNS_LEAFSWITCH);
-  lastTop  = digitalRead(PIN_SNS_FLOATTOP);
-  lastBot  = digitalRead(PIN_SNS_FLOATBOT);
-
-  LowPower.attachInterruptWakeup(PIN_SNS_BUCKET, isr_bucket, FALLING);
-  LowPower.attachInterruptWakeup(PIN_SNS_LEAFSWITCH, isr_generic, CHANGE);
-  LowPower.attachInterruptWakeup(PIN_SNS_FLOATTOP, isr_generic, CHANGE);
-  LowPower.attachInterruptWakeup(PIN_SNS_FLOATBOT, isr_generic, CHANGE);
+  dev.sendCmd("AT+TEST=RXLRPKT\r\n");
   
-  Serial.println("--- TX READY (EVENT-ONLY MODE) ---");
+  Serial.println("Source,SensorName,UnixTime,Value");
 }
 
 void loop() {
-  // --- 10 MINUTE BUCKET RESET LOGIC ---
-  // 600,000 ms = 10 minutes
-  if (bucketCount > 0 && (millis() - lastBucketTime > 600000)) {
-    bucketCount = 0;
-    Serial.println(F(">>> 10 MIN INACTIVITY: BUCKET COUNT RESET TO 0"));
+  int currentSwitch = digitalRead(PIN_SWITCH);
+  if (currentSwitch != lastSwitchState) {
+    logData("LOCAL", "Float", currentSwitch == LOW ? "FAR" : "CLOSE");
+    lastSwitchState = currentSwitch;
   }
 
-  if (flag_event_change) {
-    Serial.begin(115200);
-    unsigned long startWait = millis();
-    while(!Serial && (millis() - startWait < 500)); 
-
-    digitalWrite(LED_BUILTIN, HIGH);
-    processSensors(); 
-    
-    Serial.println(F(">>> DATA SENT. SLEEPING..."));
-    Serial.flush();
-    
-    delay(2000); 
-    digitalWrite(LED_BUILTIN, LOW);
-    flag_event_change = false;
+  while (Serial1.available()) {
+    char c = Serial1.read();
+    if (c == '\n' || c == '\r') {
+      if (inputBuffer.length() > 0) parseLoraLine(inputBuffer);
+      inputBuffer = ""; 
+    } else {
+      inputBuffer += c;
+    }
   }
+
+  if (digitalRead(PIN_RTC_INT) == LOW) {
+    readTimerSensors();
+  }
+
+  static uint32_t lastRXReset = 0;
+  if (millis() - lastRXReset > 30000) {
+    dev.sendCmd("AT+TEST=RXLRPKT\r\n");
+    lastRXReset = millis();
+  }
+}
+
+void parseLoraLine(String line) {
+  if (line.indexOf("RX \"") != -1) {
+    int startQuote = line.indexOf("\"") + 1;
+    int endQuote = line.indexOf("\"", startQuote);
+    String rawHex = line.substring(startQuote, endQuote);
+
+    if (rawHex.length() >= 20) {
+      int mType = (int)strtol(rawHex.substring(14, 16).c_str(), NULL, 16);
+      int mVal  = (int)strtol(rawHex.substring(16, 20).c_str(), NULL, 16);
+
+      String label = "UNKNOWN";
+      String statusStr = String(mVal); 
+
+      if (mType == 1) {
+        label = "REMOTE_BUCKET";
+      } 
+      else if (mType == 2) {
+        label = "REMOTE_LEAF";
+        statusStr = (mVal == LOW) ? "PRESSED" : "LIFTED";
+      } 
+      else if (mType == 3) {
+        label = "REMOTE_FLOAT_TOP";
+        statusStr = (mVal == LOW) ? "FAR" : "CLOSE";
+      } 
+      else if (mType == 4) {
+        label = "REMOTE_FLOAT_BOT";
+        statusStr = (mVal == LOW) ? "FAR" : "CLOSE";
+      }
+
+      logData("LORA", label, statusStr);
+    }
+    dev.sendCmd("AT+TEST=RXLRPKT\r\n");
+  }
+}
+
+void readTimerSensors() {
+  // TURBID
+  int sensorValue = analogRead(PIN_ANALOG_TURB);
+  float voltage_aftparallel = sensorValue * (3.3 / 1023.0);
+  float R_eq = 1/(1/4.7+ 1/3.6); 
+  float voltage = voltage_aftparallel * (4.7/R_eq); 
+
+  //convert to NTU...
+  logData("LOCAL", "Turbidity", String(voltage)); //in voltage
+
+  // --- PRESSURE SENSOR (Analog) ---
+  int HeightRaw = analogRead(PIN_ANALOG_PRES); 
+  float HeightVal = (float(HeightRaw) / 1023.0 * 5.0) ; 
+  float PressureVal = 1.0/0.7 * HeightVal; //psi conversion 
+  logData("LOCAL", "Pressure", String(PressureVal));//in psi 
+
+  // --- LUX SENSOR (I2C) ---
+  Wire.beginTransmission(BH1750_ADDRESS);
+  Wire.write(0x10); 
+  Wire.endTransmission(false); 
+
+  delay(20); // Mandatory sensor processing delay 
   
-  Watchdog.reset();
-  LowPower.sleep(); 
-}
-
-void isr_bucket() {
-  static unsigned long last_tip_debounce = 0;
-  if (millis() - last_tip_debounce > 200) { 
-    bucketCount++; 
-    lastBucketTime = millis(); // Update the "last active" timestamp
-    flag_event_change = true; 
+  Wire.requestFrom(BH1750_ADDRESS, 2);
+  if (Wire.available() == 2) {
+    uint16_t raw = (Wire.read() << 8) | Wire.read();
+    float lux = raw / 1.2; // Standard BH1750 scaling factor
+    logData("LOCAL", "Lux", String(lux));//in lx
+  } else {
+    logData("LOCAL", "Lux", "ERR_TIMEOUT");
   }
-  last_tip_debounce = millis();
+
 }
-
-void isr_generic() { flag_event_change = true; }
-
-void processSensors() {
-  static int lastSentBucket = 0;
-  if (bucketCount != lastSentBucket) { transmit(1, bucketCount); lastSentBucket = bucketCount; }
-
-  int cLeaf = digitalRead(PIN_SNS_LEAFSWITCH);
-  if (cLeaf != lastLeaf) { transmit(2, cLeaf); lastLeaf = cLeaf; }
-
-  int cTop = digitalRead(PIN_SNS_FLOATTOP);
-  if (cTop != lastTop) { transmit(3, cTop); lastTop = cTop; }
-
-  int cBot = digitalRead(PIN_SNS_FLOATBOT);
-  if (cBot != lastBot) { transmit(4, cBot); lastBot = cBot; }
-}
-
-void transmit(uint8_t typeID, uint16_t value) {
-  Serial.print(F("EVENT: Type=")); Serial.print(typeID);
-  Serial.print(F(" Val=")); Serial.println(value);
-
-  char cmd[128];
-  sprintf(cmd, "AT+TEST=TXLRPKT,\"00000000000403%02X%04X\"\r\n", typeID, value);
-  dev.sendCmd(cmd);
-  delay(1000); 
+void logData(String src, String sensor, String val) {
+  DateTime now = rtc.now();
+  String humanTime = now.timestamp(); 
+  String entry = src + "," + sensor + "," + humanTime + "," + val;
+  
+  Serial.println(entry);
+  
+  if (sd_active) {
+    File f = SD.open("datalog.csv", FILE_WRITE);
+    if (f) { 
+      f.println(entry); 
+      f.close(); 
+    }
+  }
 }
