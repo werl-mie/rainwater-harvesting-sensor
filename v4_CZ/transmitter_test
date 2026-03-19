@@ -1,0 +1,46 @@
+#include <Arduino.h>
+#include "GroveLora.h"
+
+GroveLora dev;
+int count = 0;
+
+void setup() {
+  Serial.begin(115200);
+  Serial1.begin(9600); // Connection to LoRa E5
+  while(!Serial && millis() < 5000); 
+
+  Serial.println("TX INITIALIZING...");
+
+  // 1. Set to Test Mode
+  dev.sendCmd("AT+MODE=TEST\r\n"); 
+  delay(200);
+
+  // 2. Match the RX Configuration: 915MHz, SF7, 125kHz BW, etc.
+  // The parameters must be identical to your receiver code
+  dev.sendCmd("AT+TEST=RFCFG,915,SF7,125,12,15,14,ON,OFF,OFF\r\n"); 
+  delay(200);
+
+  Serial.println("TX READY. Sending packets on 915MHz...");
+}
+void loop() {
+  char payload[64];
+  
+  // These represent the 5 variables your RX sscanf is looking for:
+  uint32_t ts  = millis(); // Timestamp (8 hex chars)
+  uint16_t sid = 0x1111;   // Sensor ID (4 hex chars)
+  uint8_t  nid = 0x22;     // Node ID (2 hex chars)
+  uint8_t  st  = 0x33;     // Sensor Type (2 hex chars)
+  uint16_t d   = count;    // The actual Data (4 hex chars)
+
+  // This formats them into one long hex string: 
+  // %08x = 8 chars, %04x = 4 chars, %02x = 2 chars
+  sprintf(payload, "AT+TEST=TXLRPKT,\"%08lx%04x%02x%02x%04x\"\r\n", ts, sid, nid, st, d);
+  
+  Serial.print("Sending Hex Packet: ");
+  Serial.println(payload);
+
+  dev.sendCmd(payload);
+
+  count++;
+  delay(5000); 
+}
