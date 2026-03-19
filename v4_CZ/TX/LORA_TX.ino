@@ -8,15 +8,16 @@
 #define DEBUG_MODE true
 
 // Pin assignments
-#define PIN_SD_CS 4
-#define PIN_SNS_BUCKET 12      
-#define PIN_SNS_LEAFSWITCH 6  
-#define PIN_SNS_FLOATTOP 11    
-#define PIN_SNS_FLOATBOT 9    
+#define PIN_SD_CS          4
+#define PIN_SNS_BUCKET     12      
+#define PIN_SNS_LEAFSWITCH 5  
+#define PIN_SNS_FLOATBOT   6    
+#define PIN_SNS_FLOATTOP   9    
 
 GroveLora dev;
 RTCZero rtc;
 
+// Global State
 volatile bool flag_event_change = false;
 volatile int bucketCount = 0;
 unsigned long lastBucketTime = 0;
@@ -33,7 +34,7 @@ void setup() {
   Serial1.begin(9600);
   Watchdog.enable(16000);
 
-  // Initialize SD
+  // Initialize SD Card
   if (!SD.begin(PIN_SD_CS)) {
     if (DEBUG_MODE) Serial.println("SD Fail");
     while (1);
@@ -47,14 +48,18 @@ void setup() {
     }
   }
 
-  // Initialize LoRa
-  dev.sendCmd("AT+MODE=TEST\r\n"); delay(200);
-  dev.sendCmd("AT+TEST=RFCFG,915,SF7,125,12,15,14,ON,OFF,OFF\r\n"); delay(200);
+  // Initialize LoRa Module
+  dev.sendCmd("AT+MODE=TEST\r\n"); 
+  delay(200);
+  dev.sendCmd("AT+TEST=RFCFG,915,SF7,125,12,15,14,ON,OFF,OFF\r\n"); 
+  delay(200);
 
+  // Initialize RTC
   rtc.begin();
   rtc.setTime(19, 58, 00);
   rtc.setDate(2, 2, 26);
 
+  // Hardware Setup
   pinMode(PIN_SNS_BUCKET, INPUT_PULLUP);
   pinMode(PIN_SNS_LEAFSWITCH, INPUT_PULLUP);
   pinMode(PIN_SNS_FLOATTOP, INPUT_PULLUP);
@@ -64,6 +69,7 @@ void setup() {
   lastTop  = digitalRead(PIN_SNS_FLOATTOP);
   lastBot  = digitalRead(PIN_SNS_FLOATBOT);
 
+  // Wakeup Interrupts
   LowPower.attachInterruptWakeup(PIN_SNS_BUCKET, isr_bucket, FALLING);
   LowPower.attachInterruptWakeup(PIN_SNS_LEAFSWITCH, isr_generic, CHANGE);
   LowPower.attachInterruptWakeup(PIN_SNS_FLOATTOP, isr_generic, CHANGE);
@@ -71,12 +77,13 @@ void setup() {
 }
 
 void loop() {
-  // 10-Minute Timeout Reset
+  // 10-Minute Timeout Reset for Bucket
   if (bucketCount > 0 && (millis() - lastBucketTime > 600000)) {
     bucketCount = 0;
     if (DEBUG_MODE) Serial.println(F("BUCKET RESET"));
   }
 
+  // Process Sensor Events
   if (flag_event_change) {
     noInterrupts();
     flag_event_change = false;
@@ -87,6 +94,7 @@ void loop() {
 
   Watchdog.reset();
 
+  // Power Management
   if (!DEBUG_MODE) {
     LowPower.sleep();
   } else {
@@ -94,12 +102,16 @@ void loop() {
   }
 }
 
+// --- Interrupt Service Routines ---
+
 void isr_bucket() {
   static unsigned long last_interrupt_time = 0;
   unsigned long interrupt_time = millis();
+  
+  // Software Debounce
   if (interrupt_time - last_interrupt_time > 200) {
     bucketCount++;
-    lastBucketTime = interrupt_time; 
+    lastBucketTime = interrupt_time;
     flag_event_change = true;
   }
   last_interrupt_time = interrupt_time;
@@ -109,11 +121,13 @@ void isr_generic() {
   flag_event_change = true;
 }
 
+// --- Logic Functions ---
+
 void identifyAndLog() {
   // 1. Bucket Check
   static int lastLoggedBucket = 0;
   if (bucketCount != lastLoggedBucket) {
-    int currentCount = bucketCount; // Snapshot volatile
+    int currentCount = bucketCount; 
     writeToCSV("BUCKET," + String(currentCount));
     transmit(1, currentCount);
     lastLoggedBucket = currentCount;
@@ -123,7 +137,7 @@ void identifyAndLog() {
   int currentLeaf = digitalRead(PIN_SNS_LEAFSWITCH);
   if (currentLeaf != lastLeaf) {
     lastLeaf = currentLeaf;
-    writeToCSV("LEAF," + String(currentLeaf == LOW ? "CLOSED" : "OPEN"));
+    writeToCSV("LEAF," + String(currentLeaf == LOW ? "PRESSED" : "LIFTED"));
     transmit(2, currentLeaf);
   }
 
@@ -163,6 +177,8 @@ void writeToCSV(String msg) {
   if (dataFile) {
     dataFile.println(logLine);
     dataFile.close();
+    
+    // Status Blink
     digitalWrite(LED_BUILTIN, HIGH);
     delay(10);
     digitalWrite(LED_BUILTIN, LOW);
@@ -171,13 +187,14 @@ void writeToCSV(String msg) {
 
 void transmit(uint8_t typeID, uint16_t value) {
   char cmd[128];
-  // Matches the RX hub parsing logic: TS(8) + ID(4) + NODE(2) + TYPE(2) + VAL(4)
+  // Payload Format: Header(14 chars) + TypeID(2) + Value(4)
   sprintf(cmd, "AT+TEST=TXLRPKT,\"00000000111122%02x%04x\"\r\n", typeID, value);
   dev.sendCmd(cmd);
-  
+
   if (DEBUG_MODE) {
     Serial.print(F("LORA: Type=")); Serial.print(typeID);
     Serial.print(F(" Val=")); Serial.println(value);
   }
-  delay(1000); // Wait for radio to finish before sleep
+  
+  delay(200); // Radio cooldown before potential sleep
 }
