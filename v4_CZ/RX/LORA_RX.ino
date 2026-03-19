@@ -110,66 +110,20 @@ void parseLoraLine(String line) {
   }
 }
 
-// void readTimerSensors() {
-
-//   //add pressure sensor (code below until pressure ends works )
-
-//   // void setup() {
-//   //   // Initialize serial communication at 9600 bits per second:
-//   //   Serial.begin(9600);
-//   // }
-
-//   // void loop() {
-//   //   // Read the input on analog pin 0:
-//   //   int sensorValue = analogRead(A0);
-    
-//   //   // Print out the value you read:
-//   //   Serial.println(sensorValue);
-    
-//   //   // A small delay to keep the serial monitor readable
-//   //   delay(100);        
-//   // }
-
-//   //pressure end 
-
-//   //add lux sensor (code below until "lux end works")
-  
-//   // #include <Wire.h>
-
-//   // #define ADDR 0x23 // I2C address [cite: 333]
-
-//   // void setup() {
-//   //   Wire.begin();
-//   //   Serial.begin(9600);
-//   //   while (!Serial);
-//   // }
-
-//   // void loop() {
-//   //   Wire.beginTransmission(ADDR);
-//   //   Wire.write(0x10); 
-//   //   Wire.endTransmission(false); 
-
-//   //   delay(20); 
-//   //   Wire.requestFrom(ADDR, 2);
-
-//   //   if (Wire.available() == 2) {
-//   //     uint16_t raw = (Wire.read() << 8) | Wire.read();
-//   //     float lux = raw / 1.2;
-//   //     Serial.print("LUX: ");
-//   //     Serial.println(lux);
-//   //   }
-
-//   //   delay(500);
-//   // }
-
-//   //lux end
-
-// }
-
 void readTimerSensors() {
+  // TURBID
+  int sensorValue = analogRead(PIN_ANALOG_TURB);
+  float voltage_aftparallel = sensorValue * (3.3 / 1023.0);
+  float R_eq = 1/(1/4.7+ 1/3.6); 
+  float voltage = voltage_aftparallel * (4.7/R_eq); 
+  //convert to NTU...
+  logData("LOCAL", "Turbidity", String(voltage)); //in voltage
+
   // --- PRESSURE SENSOR (Analog) ---
-  int pressureRaw = analogRead(PIN_ANALOG_PRES);
-  logData("LOCAL", "Pressure", String(pressureRaw));
+  int HeightRaw = analogRead(PIN_ANALOG_PRES); 
+  float HeightVal = (float(HeightRaw) / 1023.0 * 5.0) ; 
+  float PressureVal = 1.0/0.7 * HeightVal; //psi conversion 
+  logData("LOCAL", "Pressure", String(PressureVal));//in psi 
 
   // --- LUX SENSOR (I2C) ---
   Wire.beginTransmission(BH1750_ADDRESS);
@@ -182,7 +136,7 @@ void readTimerSensors() {
   if (Wire.available() == 2) {
     uint16_t raw = (Wire.read() << 8) | Wire.read();
     float lux = raw / 1.2; // Standard BH1750 scaling factor
-    logData("LOCAL", "Lux", String(lux));
+    logData("LOCAL", "Lux", String(lux));//in lx
   } else {
     logData("LOCAL", "Lux", "ERR_TIMEOUT");
   }
