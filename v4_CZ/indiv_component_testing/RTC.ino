@@ -5,56 +5,38 @@ RTC_PCF8523 rtc;
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial); // Wait for Serial monitor to open
+  
+  // Wait for Serial Monitor to open
+  while (!Serial); 
   delay(1000);
 
-  Serial.println("\n--- RTC HARDWARE TEST ---");
+  Serial.println("--- RTC SYNC TOOL ---");
 
   Wire.begin();
 
-  // 1. Check physical connection
-  Serial.print("Scanning I2C bus for 0x68... ");
-  Wire.beginTransmission(0x68);
-  if (Wire.endTransmission() == 0) {
-    Serial.println("FOUND!");
-  } else {
-    Serial.println("NOT FOUND. Check your PCB traces/soldering.");
-    while (1); // Stop here if not found
-  }
-
-  // 2. Initialize Library
   if (!rtc.begin()) {
-    Serial.println("Library could not find PCF8523!");
+    Serial.println("Couldn't find RTC! Check PCB/Wiring.");
     while (1);
   }
 
-  // 3. Check if the clock is "Stopped"
-  if (!rtc.initialized() || rtc.lostPower()) {
-    Serial.println("RTC was stopped/power lost. Setting to compile time...");
-    // This kickstarts the internal oscillator
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  } else {
-    Serial.println("RTC is already initialized and running.");
-  }
+  // --- THE SYNC COMMAND ---
+  // This line takes the date and time from your computer at the second of compilation
+  Serial.println("Synchronizing RTC with computer time...");
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  
+  // Start the internal oscillator (just in case it was stopped)
+  rtc.start(); 
 
-  Serial.println("Starting clock output (1 second interval):");
+  Serial.println("Sync Complete!");
+  Serial.println("Current Time (YY/MM/DD HH:MM:SS):");
 }
 
 void loop() {
   DateTime now = rtc.now();
 
-  Serial.print(now.year(), DEC);
-  Serial.print('/');
-  Serial.print(now.month(), DEC);
-  Serial.print('/');
-  Serial.print(now.day(), DEC);
-  Serial.print(" - ");
-  Serial.print(now.hour(), DEC);
-  Serial.print(':');
-  Serial.print(now.minute(), DEC);
-  Serial.print(':');
-  Serial.print(now.second(), DEC);
-  Serial.println();
+  // Print the time every second to verify it is counting
+  char buf[] = "YYYY/MM/DD  hh:mm:ss";
+  Serial.println(now.toString(buf));
 
   delay(1000);
 }
