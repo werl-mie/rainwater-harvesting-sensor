@@ -1,6 +1,10 @@
 /*
   Digital Read for Adafruit RP2040
   Reads a digital input on pin 9 and prints the result to the Serial Monitor.
+
+NEXT STEPS: 
+1) RTC - resolder pin 5 to RTC SQW pin
+2) N1 AND N2 
 */
 
 const int inputPin = 9; // Define the pin number
