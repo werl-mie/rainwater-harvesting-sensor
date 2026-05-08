@@ -5,9 +5,9 @@
 #include "GroveLora.h"
 
 #define PIN_SD_CS 4 
-#define PIN_RTC_INT 5
-#define PIN_SWITCH 12  
-#define PIN_ANALOG_TURB A1 
+#define PIN_RTC_INT 11
+// #define PIN_SWITCH 12  
+// #define PIN_ANALOG_TURB A1 
 #define PIN_ANALOG_PRES A0
 #define BH1750_ADDRESS 0x23
 
@@ -19,13 +19,14 @@ String inputBuffer = "";
 
 void setup() {
   Serial.begin(115200);
+  while (!Serial);
   Serial1.begin(9600); 
   Serial1.setTimeout(50);
   Wire.begin();
   
-  pinMode(PIN_SWITCH, INPUT_PULLUP);
+  // pinMode(PIN_SWITCH, INPUT_PULLUP);
   pinMode(PIN_RTC_INT, INPUT_PULLUP);
-  lastSwitchState = digitalRead(PIN_SWITCH);
+  // lastSwitchState = digitalRead(PIN_SWITCH);
 
   if (rtc.begin()) {
     rtc.deconfigureAllTimers();
@@ -41,12 +42,12 @@ void setup() {
 }
 
 void loop() {
-  // 1. LOCAL FLOAT SWITCH
-  int currentSwitch = digitalRead(PIN_SWITCH);
-  if (currentSwitch != lastSwitchState) {
-    logData("LOCAL", "Float", currentSwitch == LOW ? "FAR" : "CLOSE");
-    lastSwitchState = currentSwitch;
-  }
+  // // 1. LOCAL FLOAT SWITCH
+  // int currentSwitch = digitalRead(PIN_SWITCH);
+  // if (currentSwitch != lastSwitchState) {
+  //   logData("LOCAL", "Float", currentSwitch == LOW ? "FAR" : "CLOSE");
+  //   lastSwitchState = currentSwitch;
+  // }
 
   // 2. LORA PROCESSING (Remote Sensors)
   while (Serial1.available()) {
@@ -88,7 +89,7 @@ void parseLoraLine(String line) {
       if (mType == 1) label = "REMOTE_BUCKET";
       else if (mType == 2) {
         label = "REMOTE_LEAF";
-        statusStr = (mVal == LOW) ? "PRESSED" : "LIFTED";
+        statusStr = (mVal == LOW) ? "LIFTED" : "PRESSED";
       }
       else if (mType == 3) {
         label = "REMOTE_FLOAT_TOP";
@@ -107,14 +108,14 @@ void parseLoraLine(String line) {
 
 void readTimerSensors() {
   // Turbidity
-  int turbRaw = analogRead(PIN_ANALOG_TURB);
-  float v = turbRaw * (3.3 / 1023.0);
-  logData("LOCAL", "Turbidity", String(v));
+  // int turbRaw = analogRead(PIN_ANALOG_TURB);
+  // float v = turbRaw * (3.3 / 1023.0);
+  // logData("LOCAL", "Turbidity", String(v));
 
   // Pressure
   int presRaw = analogRead(PIN_ANALOG_PRES);
-  float presVal = (float(presRaw) / 1023.0 * 5.0) / 0.7; 
-  logData("LOCAL", "Pressure", String(presVal));
+  //float presVal = (float(presRaw) / 1023.0 * 5.0);
+  logData("LOCAL", "Pressure", String(presRaw));
 
   // Lux
   Wire.beginTransmission(BH1750_ADDRESS);
