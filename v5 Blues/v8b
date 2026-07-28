@@ -1,0 +1,621 @@
+#include "ArduinoLowPower.h"
+#include <RTCZero.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include "RTClib.h"
+#include <Adafruit_SleepyDog.h>
+#include <Notecard.h>
+
+#define DEBUG_MODE true
+#define productUID "ca.utoronto.mail.a.diazlozanopatino:v6_boardtocell" // change product UID with project's UID from notehub.io
+
+// Pin assignments
+
+#define PIN_SD_CS          4
+#define PIN_RTC_INT        6
+
+#define PIN_SNS_BUCKET     10
+#define PIN_SNS_LEAFSWITCH 9
+#define PIN_SNS_FLOATBOT   12
+#define PIN_SNS_FLOATTOP   11
+
+#define PIN_BOOST_EN       5
+
+//#define PIN_ANALOG_TURB    A3
+#define PIN_ANALOG_PRES    A2
+#define PIN_SNS_CHLO A1 
+ 
+// RTC Objects
+
+RTC_PCF8523 rtc;
+RTCZero rtcz;
+
+// Blues Notecard
+Notecard notecard;
+
+// Global State
+
+volatile bool flag_event_change = false;
+volatile bool rtcTriggered = false;
+
+volatile int bucketCount = 0;
+
+unsigned long lastBucketTime = 0;
+
+int lastLeaf;
+int lastTop;
+int lastBot;
+int lastChlo;
+
+// Function Prototypes
+
+void isr_bucket();
+void isr_generic();
+void powerSensorsOn();
+void powerSensorsOff();
+
+void identifyAndLog();
+void readTimerSensors();
+
+void writeToCSV(const char* sensorName, const char* sensorVal);
+void writeToCSV(const char* sensorName, int sensorVal);
+void writeToCSV(const char* sensorName, float sensorVal);
+void writeToNotecard(const char* sensorName, const char* sensorVal);
+
+// Setup
+
+void setup(){
+ //Allow notecard to wake up and start i2c   
+    delay(2500);
+    
+    if (DEBUG_MODE){
+        Serial.begin(115200);
+        uint32_t startWait = millis();
+    }
+
+    Serial1.begin(9600);
+    Watchdog.enable(16000);
+
+    pinMode(LED_BUILTIN, OUTPUT);
+
+    // Use full SAMD21 ADC resolution
+    analogReadResolution(12);
+
+    // SD Card init
+    if (!SD.begin(PIN_SD_CS)){
+        if (DEBUG_MODE){
+            Serial.println(F("SD Fail"));
+        }
+        while (1);
+    }
+
+    if (!SD.exists("adata.csv")){
+        File dataFile =
+            SD.open("adata.csv", FILE_WRITE);
+
+        if (dataFile){
+            dataFile.println(
+                F("DateTime,Sensor,Epoch,Value")
+            );
+
+            dataFile.close();
+        }
+    }
+
+    // RTCZero
+    Wire.begin();
+    rtcz.begin();
+    rtcz.setTime(12, 0, 0); //change to approx installation time
+    rtcz.setDate(10, 7, 26); //change to date
+
+    // Notecard - Cellular
+    notecard.begin(); // Initiate I2C wire connection
+    // Add this temporarily to setup() to clear out the stuck notes:
+    //J *purgeReq = notecard.newRequest("file.delete");
+    //if (purgeReq != NULL) {
+    //    JAddStringToObject(purgeReq, "name", "sensors.qo");
+    //    notecard.sendRequest(purgeReq);
+    //}
+
+
+   if (DEBUG_MODE) {
+        notecard.setDebugOutputStream(Serial);
+    }
+
+
+    J *req = notecard.newRequest("hub.set"); 
+    if (req != NULL){
+        JAddStringToObject(req, "product", productUID);
+        //JAddStringToObject(req, "mode", "continuous"); 
+
+        //JAddBoolToObject(req, "sync", true);
+        JAddStringToObject(req, "mode", "periodic"); // periodic mode: keeps radio OFF until outbound timer
+        JAddNumberToObject(req, "outbound", 300); //every 5 hrs send info
+        JAddNumberToObject(req, "inbound", 300);
+
+        // Execute the send exactly ONCE, capturing its success/failure state cleanly
+        bool success = notecard.sendRequest(req);
+        if (!success && DEBUG_MODE) {
+            Serial.println(F("Notecard hub.set failed"));
+        }
+    }
+    //J *statusReq = notecard.newRequest("hub.status");
+    //if (statusReq != NULL) {
+    //    notecard.sendRequest(statusReq);
+    //}
+
+    J *getReq = notecard.newRequest("hub.get");
+    if (getReq != NULL) {
+        J *rsp = notecard.requestAndResponse(getReq);
+
+        if (rsp != NULL) {
+            Serial.println("hub.get:");
+
+            char *json = JPrint(rsp);
+            Serial.println(json);
+            JFree(json);
+
+            notecard.deleteResponse(rsp);
+        } else {
+        Serial.println("No response to hub.get");
+        }
+    }
+    
+    //notecard.sendRequest(notecard.newRequest("hub.sync"));
+    
+    //Installation commands for cellular 12hr cycles
+    
+    //JAddStringToObject(req, "mode", "periodic"); // periodic mode: keeps radio OFF until outbound timer
+    //JAddNumberToObject(req, "outbound", 720); //outbound sync interval: 12 hrs (720 mins)
+    //JAddNumberToObject(req, "inbound", 720); //inbound: incoming settings
+
+
+
+    // Pin assignment
+
+    pinMode(PIN_SNS_BUCKET, INPUT_PULLUP);
+    pinMode(PIN_SNS_LEAFSWITCH, INPUT_PULLUP);
+    pinMode(PIN_SNS_FLOATTOP, INPUT_PULLUP);
+    pinMode(PIN_SNS_FLOATBOT, INPUT_PULLUP);
+    pinMode(PIN_RTC_INT, INPUT_PULLUP);
+    pinMode(PIN_SNS_CHLO, INPUT);
+    
+    pinMode(PIN_BOOST_EN, OUTPUT);
+    digitalWrite(PIN_BOOST_EN, LOW);  //Mini boost off @ init
+    //Locks register active through standby sleep
+    PORT->Group[g_APinDescription[PIN_BOOST_EN].ulPort].PINCFG[g_APinDescription[PIN_BOOST_EN].ulPin].bit.INEN = 1;
+
+    // PCF8523 Timer
+
+    if (rtc.begin()){
+        rtc.deconfigureAllTimers();
+
+        // Every 10s for test, 5 minutes for field
+        rtc.enableCountdownTimer(
+            PCF8523_FrequencySecond,
+            15);
+
+        if (DEBUG_MODE){
+            Serial.println(
+                F("RTC Timer set")
+            );
+        }
+    }
+    else{
+        if (DEBUG_MODE){
+            Serial.println(
+                F("RTC Init Failed")
+            );
+        }
+    }
+
+    // Initial Sensor States
+
+    lastLeaf = digitalRead(PIN_SNS_LEAFSWITCH);
+    lastTop = digitalRead(PIN_SNS_FLOATTOP);
+    lastBot = digitalRead(PIN_SNS_FLOATBOT);
+    lastChlo = digitalRead(PIN_SNS_CHLO);
+
+    // Wakeup Interrupts
+
+    LowPower.attachInterruptWakeup(
+        PIN_SNS_BUCKET,
+        isr_bucket,
+        FALLING
+    );
+
+    LowPower.attachInterruptWakeup(
+        PIN_SNS_LEAFSWITCH,
+        isr_generic,
+        CHANGE
+    );
+
+    LowPower.attachInterruptWakeup(
+        PIN_SNS_FLOATTOP,
+        isr_generic,
+        CHANGE
+    );
+
+    LowPower.attachInterruptWakeup(
+        PIN_SNS_FLOATBOT,
+        isr_generic,
+        CHANGE
+    );
+
+    LowPower.attachInterruptWakeup(
+        PIN_SNS_CHLO,
+        isr_generic,
+        CHANGE
+    );
+
+    LowPower.attachInterruptWakeup(
+        PIN_RTC_INT,
+        isr_generic,
+        FALLING
+    );
+}
+
+// Main Loop
+void loop(){
+
+    Watchdog.reset();
+
+       // RTC Timer Event
+    if (rtcTriggered){
+
+        rtcTriggered = false;
+
+        if(DEBUG_MODE){
+            Serial.println(F("RTC TIMER EVENT"));
+        }
+        
+        //Temporarily clear interrupts so 5v power does not self-trigger
+        detachInterrupt(digitalPinToInterrupt(PIN_RTC_INT));
+
+        reconfigureIntegratedPins();
+
+        readTimerSensors();
+
+        if(DEBUG_MODE){
+            Serial.println(F("REARMING TIMER"));
+        }
+
+        rtc.deconfigureAllTimers();
+        rtc.writeSqwPinMode(PCF8523_OFF); // Force release of rtc line back to high
+        delay(100);
+        rtc.enableCountdownTimer(PCF8523_FrequencySecond, 15);
+
+        //Clear lingering interrupt flags
+        EIC->INTFLAG.reg = (1 << g_APinDescription[PIN_RTC_INT].ulPin); 
+        LowPower.attachInterruptWakeup(PIN_RTC_INT, isr_generic, FALLING);
+    }
+    // Process Digital Sensor Events
+    if (flag_event_change){
+        noInterrupts();
+        flag_event_change = false;
+        interrupts();
+
+        reconfigureIntegratedPins();
+        identifyAndLog();
+    }
+
+    // Bucket Timeout Reset
+    if (bucketCount > 0 &&
+        (millis() - lastBucketTime > 600000UL)) {
+        bucketCount = 0;
+
+        if (DEBUG_MODE){
+            Serial.println(F("BUCKET RESET"));
+        }
+    }
+
+    Watchdog.reset();
+
+    // Power Management
+    if (!DEBUG_MODE){
+        powerSensorsOff();
+        deactivateInterruptPins();
+        
+        LowPower.sleep();
+
+        // Force Feather to wait until internal phase-locked loops stabilize
+        for(volatile int i=0; i<500; i++) { asm("nop"); } 
+        delay(100);
+    }
+    else{
+        delay(200);
+    }
+}
+
+//Pin Definition Helper Functions
+void deactivateInterruptPins(){
+    pinMode(PIN_SNS_BUCKET, INPUT);
+    pinMode(PIN_SNS_LEAFSWITCH, INPUT);
+    pinMode(PIN_SNS_FLOATTOP, INPUT);
+    pinMode(PIN_SNS_FLOATBOT, INPUT);
+    pinMode(PIN_SNS_CHLO, INPUT);
+}
+
+void reconfigureIntegratedPins(){
+    pinMode(PIN_SNS_BUCKET, INPUT_PULLUP);
+    pinMode(PIN_SNS_LEAFSWITCH, INPUT_PULLUP);
+    pinMode(PIN_SNS_FLOATTOP, INPUT_PULLUP);
+    pinMode(PIN_SNS_FLOATBOT, INPUT_PULLUP);
+    pinMode(PIN_SNS_CHLO, INPUT);
+}
+
+// Interrupt Service Routines
+
+void isr_bucket(){
+    static unsigned long last_interrupt_time = 0;
+
+    unsigned long interrupt_time = millis();
+
+    if (interrupt_time - last_interrupt_time > 200){
+        bucketCount++;
+
+        lastBucketTime = interrupt_time;
+
+        flag_event_change = true;
+    }
+
+    last_interrupt_time = interrupt_time;
+}
+
+void isr_generic(){
+    flag_event_change = true;
+
+    //If RTC induced wake-up, explicitly flag here
+    if(digitalRead(PIN_RTC_INT)==LOW){
+        rtcTriggered = true;
+    }
+}
+
+void powerSensorsOn(){
+    pinMode(PIN_BOOST_EN, OUTPUT); 
+    
+    digitalWrite(PIN_BOOST_EN, HIGH);
+    PORT->Group[g_APinDescription[PIN_BOOST_EN].ulPort].PINCFG[g_APinDescription[PIN_BOOST_EN].ulPin].bit.INEN = 1;
+    
+
+    //delay(200);
+
+    //explicit delay to overcome standby clock compression
+    for (int i = 0; i < 30; i++) {
+        delayMicroseconds(50000); // 30 * 50ms = Exactly 1,500ms (1.5 seconds) of warm-up
+    }
+
+}
+
+void powerSensorsOff(){
+    pinMode(PIN_BOOST_EN, OUTPUT);
+    digitalWrite(PIN_BOOST_EN, LOW);
+    PORT->Group[g_APinDescription[PIN_BOOST_EN].ulPort].PINCFG[g_APinDescription[PIN_BOOST_EN].ulPin].bit.INEN = 1;
+    for (int i = 0; i < 4; i++) {
+        delayMicroseconds(50000); 
+    }
+}
+
+// Timed Sensors
+
+void readTimerSensors(){
+    
+    powerSensorsOn();
+
+    delay(500); //allow sensors to wake-up
+
+    // Turbidity
+//    int turbRaw = analogRead(PIN_ANALOG_TURB);
+
+//    float turbVoltage = turbRaw * (3.3f / 4095.0f);
+
+//    writeToCSV("TurbidityRaw",turbRaw);
+//    writeToCSV("TurbidityVolt",turbVoltage);
+
+    // Pressure
+    analogRead(PIN_ANALOG_PRES); //Throw away first reading to reduce noise
+    int presRaw = analogRead(PIN_ANALOG_PRES);
+
+    float presVoltage = presRaw * (3.3f / 4095.0f);
+
+    if(DEBUG_MODE){
+        Serial.println(presRaw);
+    }
+
+    writeToCSV("PressureRaw",presRaw);
+    writeToCSV("PressureVolt", presVoltage);
+
+    powerSensorsOff();
+}
+
+// Event Sensors
+
+void identifyAndLog(){
+    static int lastLoggedBucket = 0;
+
+    // Bucket Counter
+    if (bucketCount != lastLoggedBucket){
+        int currentCount = bucketCount;
+        writeToCSV("BUCKET",currentCount);
+        lastLoggedBucket = currentCount;
+    }
+
+    // Leaf Switch
+    int currentLeaf = digitalRead(PIN_SNS_LEAFSWITCH);
+
+    if (currentLeaf != lastLeaf){
+        lastLeaf = currentLeaf;
+        writeToCSV("LEAF", currentLeaf == LOW ?
+            "PRESSED" :
+            "LIFTED"
+        );
+    }
+
+    // Float Top
+    int currentTop = digitalRead(PIN_SNS_FLOATTOP);
+
+    if (currentTop != lastTop){
+        lastTop = currentTop;
+        writeToCSV("FLOAT_TOP", currentTop == LOW ?
+            "FAR" :
+            "CLOSE"
+        );
+    }
+   
+   // Float Bottom
+    int currentBot =digitalRead(PIN_SNS_FLOATBOT);
+
+    if (currentBot != lastBot){
+        lastBot = currentBot;
+        writeToCSV(
+            "FLOAT_BOT",
+            currentBot == LOW ?
+            "CLOSE" :
+            "FAR"
+        );
+    }
+
+    // Chlorine dispenser
+    int currentChlo = digitalRead(PIN_SNS_CHLO);
+
+    if (currentChlo != lastChlo){
+        lastChlo = currentChlo; 
+        writeToCSV(
+            "CHLORINE",
+            currentChlo == LOW ?
+            "CHLO_OPEN":
+            "CHLO_CLOSED"
+        );
+    }
+}
+
+// Logger Overloads
+
+void writeToCSV(const char* sensorName, int sensorVal){
+    char valueBuf[16];
+
+    snprintf(
+        valueBuf,
+        sizeof(valueBuf),
+        "%d",
+        sensorVal
+    );
+
+    writeToCSV(sensorName, valueBuf);
+}
+
+void writeToCSV(const char* sensorName, float sensorVal){
+    char valueBuf[20];
+
+    snprintf(
+        valueBuf,
+        sizeof(valueBuf),
+        "%.3f",
+        sensorVal
+    );
+
+    writeToCSV(sensorName, valueBuf);
+}
+
+// Main CSV Writer
+
+void writeToCSV(const char* sensorName, const char* sensorVal){
+    uint32_t epoch = rtcz.getEpoch();
+
+    char ts_human[25];
+
+    snprintf(
+        ts_human,
+        sizeof(ts_human),
+        "%04d-%02d-%02d %02d:%02d:%02d",
+        rtcz.getYear() + 2000,
+        rtcz.getMonth(),
+        rtcz.getDay(),
+        rtcz.getHours(),
+        rtcz.getMinutes(),
+        rtcz.getSeconds()
+    );
+
+    char logLine[128];
+
+    snprintf(
+        logLine,
+        sizeof(logLine),
+        "%s,%s,%lu,%s",
+        ts_human,
+        sensorName,
+        (unsigned long)epoch,
+        sensorVal
+    );
+
+    if (DEBUG_MODE){
+        Serial.print(F("SD LOG: "));
+        Serial.println(logLine);
+    }
+
+    File dataFile =
+        SD.open("adata.csv", FILE_WRITE);
+
+    if (dataFile){
+        dataFile.println(logLine);
+        dataFile.close();
+
+        writeToNotecard(sensorName, sensorVal); //mirror data in Notecard queue
+
+        digitalWrite(LED_BUILTIN, HIGH);
+        delay(10);
+        digitalWrite(LED_BUILTIN, LOW);
+    }
+    else{
+        if (DEBUG_MODE){
+            Serial.println(F("SD Write Failed"));
+        }
+    }
+}
+
+// Cellular 
+
+void writeToNotecard(const char* sensorName, const char* sensorVal){
+    
+    J *req = notecard.newRequest("note.add"); // Create new request to queue data
+    if (req == NULL){
+        if (DEBUG_MODE){
+            Serial.println(F("Failed to allocate Notecard request memory"));
+        }
+        return;
+    }
+
+    JAddStringToObject(req, "file", "sensors.qo"); //target file ".qo" (i.e. queue outbound, sending every 12hr)
+    //JAddBoolToObject(req, "sync", true);
+
+    J *body = JCreateObject();
+    if (body == NULL){
+        JDelete(req);
+        return;
+    }
+
+    uint32_t epoch = rtcz.getEpoch(); // capture internal RTC time
+
+    JAddStringToObject(body, "sensor", sensorName);
+    JAddStringToObject(body, "value", sensorVal);
+    JAddNumberToObject(body, "epoch", epoch);
+
+    JAddItemToObject(req, "body", body); //attach body to request
+
+    J *rsp = notecard.requestAndResponse(req);
+
+    if (rsp != NULL) {
+        char *json = JPrint(rsp);
+        Serial.println("note.add response:");
+        Serial.println(json);
+        JFree(json);
+
+        notecard.deleteResponse(rsp);
+    } else {
+        Serial.println("No response to note.add");
+    }
+    
+
+}
+
